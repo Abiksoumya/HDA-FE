@@ -34,7 +34,7 @@ export default function CompanyManager() {
       <div />
       <div className="flex gap-2">
         <Button variant="secondary" onClick={() => setEditing(null)}>
-          <X size={13} /> Cancel
+          <X size={13} /> Close
         </Button>
         <Button type="submit" form="company-form" disabled={saving}>
           <Save size={13} /> {saving ? 'Saving…' : 'Submit'}

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as Yup from 'yup';
-import { getCompanyGroup, getCompanyLayers } from '@/apis/master/companyApi';
+import { getCompanyGroup, getCompanyLayers,getAllCompanies, getCompaniesForDropdown } from '@/apis/master/companyApi';
 import FormField from '@/components/shared/FormField';
 import { cn } from '@/utils/cn';
 import type { Company, CompanyFormValues, CompanyLayer } from '@/types';
@@ -14,16 +14,22 @@ const schema = Yup.object({
   p_email_no: Yup.string().email('Invalid email address').notRequired(),
 });
 
+interface ParentOption {
+  id: number;
+  name: string;
+}
+
 interface Props {
   company: Company | null;
   onSave: (data: CompanyFormValues) => void;
 }
 
 export default function CompanyForm({ company, onSave }: Props) {
-  const [companyGroupDD, setCompanyGroupDD] = useState<Company[]>([]);
   const [companyLayerDD, setCompanyLayerDD] = useState<CompanyLayer[]>([]);
+  const [parentDD, setParentDD] = useState<ParentOption[]>([]);
+  const [parentLabel, setParentLabel] = useState('Parent Group/Company');
   const [ddLoaded, setDdLoaded] = useState(false);
-  const [selectedLayerDesc, setSelectedLayerDesc] = useState('');
+  const [parentLoading, setParentLoading] = useState(false);
 
   const { register, handleSubmit, formState: { errors }, reset, setValue, control } =
     useForm<CompanyFormValues>({
@@ -35,25 +41,84 @@ export default function CompanyForm({ company, onSave }: Props) {
       },
     });
 
-  const watchedGroupId = useWatch({ control, name: 'p_ADMIN_COMPANY_NGRPID' });
   const watchedLayerId = useWatch({ control, name: 'p_ADIMN_CMPN_LAYER_NID' });
 
-  // Load dropdowns
+  // Load company layers on mount
   useEffect(() => {
-    setDdLoaded(false);
-    Promise.all([
-      getCompanyGroup().then((r) => setCompanyGroupDD(r?.data?.data ?? [])),
-      getCompanyLayers().then((r) => setCompanyLayerDD(r?.data?.data ?? [])),
-    ])
-      .catch(() => {})
-      .finally(() => {
-        setDdLoaded(true);
-        if (company?.ADMIN_COMPANY_NID) {
-          setValue('p_ADMIN_COMPANY_NGRPID', company.ADMIN_COMPANY_NGRPID ?? 0);
-          setValue('p_ADIMN_CMPN_LAYER_NID', company.ADIMN_CMPN_LAYER_NID ?? 0);
-        }
-      });
-  }, [company, setValue]);
+    getCompanyLayers()
+      .then((r) => setCompanyLayerDD(r?.data?.data ?? []))
+      .catch(() => setCompanyLayerDD([]))
+      .finally(() => setDdLoaded(true));
+  }, []);
+
+  // When layer changes → load correct parent options
+  useEffect(() => {
+    const layerId = Number(watchedLayerId);
+
+    // Reset parent selection
+    setValue('p_ADMIN_COMPANY_NGRPID', 0);
+    setParentDD([]);
+
+    if (!layerId || layerId === 0) return;
+
+    if (layerId === 1) {
+      // Group Company — no parent needed
+      setParentLabel('Parent Group/Company');
+      setParentDD([]);
+      return;
+    }
+
+    if (layerId === 2) {
+      // Company → show Group Companies
+      setParentLabel('Select Group Company');
+      setParentLoading(true);
+      getCompanyGroup()
+        .then((r) => {
+          const data = r?.data?.data ?? [];
+          setParentDD(data.map((d: { ADMIN_COMPANY_NID: number; ADMIN_COMPANY_SNAME: string }) => ({
+            id: d.ADMIN_COMPANY_NID,
+            name: d.ADMIN_COMPANY_SNAME,
+          })));
+        })
+        .catch(() => setParentDD([]))
+        .finally(() => setParentLoading(false));
+      return;
+    }
+
+    // Branch → Companies (LayerID = 2)
+if (layerId === 3) {
+  setParentLabel('Select Company');
+  setParentLoading(true);
+  getCompaniesForDropdown(2)
+    .then((r) => {
+      const data = r?.data ?? [];
+      setParentDD(data.map((c: { CompanyID: number; Description: string }) => ({
+        id: c.CompanyID,
+        name: c.Description,
+      })));
+    })
+    .catch(() => setParentDD([]))
+    .finally(() => setParentLoading(false));
+  return;
+}
+
+// Unit → Branches (LayerID = 3)
+if (layerId === 4) {
+  setParentLabel('Select Branch');
+  setParentLoading(true);
+  getCompaniesForDropdown(3)
+    .then((r) => {
+      const data = r?.data ?? [];
+      setParentDD(data.map((c: { CompanyID: number; Description: string }) => ({
+        id: c.CompanyID,
+        name: c.Description,
+      })));
+    })
+    .catch(() => setParentDD([]))
+    .finally(() => setParentLoading(false));
+  return;
+}
+  }, [watchedLayerId, setValue]);
 
   // Populate form when editing
   useEffect(() => {
@@ -81,95 +146,97 @@ export default function CompanyForm({ company, onSave }: Props) {
     }
   }, [company, reset]);
 
-  // Sync group layer description
-  useEffect(() => {
-    if (watchedGroupId && companyGroupDD.length > 0) {
-      const found = companyGroupDD.find((g) => String(g.ADMIN_COMPANY_NID) === String(watchedGroupId));
-      setSelectedLayerDesc(found?.ADIMN_CMPN_LAYER_SDESC ?? '');
-    } else {
-      setSelectedLayerDesc('');
-    }
-  }, [watchedGroupId, companyGroupDD]);
-
+  const showParent = Number(watchedLayerId) > 1; // hide for Group Company
   const I = (name: keyof CompanyFormValues, extra?: string) =>
     cn('form-input', errors[name] && 'border-red-400 focus:ring-red-400/40', extra);
 
-  const S = (name: keyof CompanyFormValues) =>
-    cn('form-select', errors[name] && 'border-red-400', !ddLoaded && 'opacity-60');
-
   return (
     <form id="company-form" onSubmit={handleSubmit(onSave)} noValidate>
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-        {/* Parent Group */}
-        <div className="md:col-span-5">
-          <FormField label="Parent Group/Company" loading={!ddLoaded}>
-            <select className={S('p_ADMIN_COMPANY_NGRPID')} {...register('p_ADMIN_COMPANY_NGRPID')} disabled={!ddLoaded}>
-              <option value={0}>-- Select --</option>
-              {companyGroupDD.map((opt) => (
-                <option key={opt.ADMIN_COMPANY_NID} value={opt.ADMIN_COMPANY_NID}>{opt.ADMIN_COMPANY_SNAME}</option>
-              ))}
-            </select>
-          </FormField>
-        </div>
-        <div className="md:col-span-3">
-          <FormField label="Group/Company Layer">
-            <div className="form-input bg-slate-50 text-slate-500 text-xs">{selectedLayerDesc || '—'}</div>
-          </FormField>
-        </div>
-      </div>
+  {/* Row 1 — Company Layer + Parent */}
+  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4">
+    <div className="md:col-span-3">
+      <FormField label="Company Layer" loading={!ddLoaded}>
+        <select
+          className={cn('form-select', !ddLoaded && 'opacity-60')}
+          disabled={!ddLoaded}
+          {...register('p_ADIMN_CMPN_LAYER_NID', { valueAsNumber: true })}
+        >
+          <option value={0}>-- Select --</option>
+          {companyLayerDD.map((l) => (
+            <option key={l.ADIMN_CMPN_LAYER_NID} value={l.ADIMN_CMPN_LAYER_NID}>
+              {l.ADIMN_CMPN_LAYER_SDESC}
+            </option>
+          ))}
+        </select>
+      </FormField>
+    </div>
 
-      <hr className="my-4 border-slate-100" />
-
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-        <div className="md:col-span-3">
-          <FormField label="Company Layer" loading={!ddLoaded}>
-            <select className={S('p_ADIMN_CMPN_LAYER_NID')} {...register('p_ADIMN_CMPN_LAYER_NID')} disabled={!ddLoaded}>
-              <option value={0}>-- Select --</option>
-              {companyLayerDD.map((l) => (
-                <option key={l.ADIMN_CMPN_LAYER_NID} value={l.ADIMN_CMPN_LAYER_NID}>{l.ADIMN_CMPN_LAYER_SDESC}</option>
-              ))}
-            </select>
-          </FormField>
-        </div>
-        <div className="md:col-span-5">
-          <FormField label="Name of Group/Company/Branch/Unit" required error={errors.p_ADMIN_COMPANY_SNAME?.message}>
-            <input type="text" className={I('p_ADMIN_COMPANY_SNAME')} {...register('p_ADMIN_COMPANY_SNAME')} />
-          </FormField>
-        </div>
-      </div>
-
-      <hr className="my-4 border-slate-100" />
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <FormField label="Short Name / Prefix" error={errors.p_short_name?.message}>
-          <input type="text" className={I('p_short_name')} {...register('p_short_name')} />
-        </FormField>
-        <div className="sm:col-span-2">
-          <FormField label="Address 1" error={errors.p_addr1?.message}>
-            <input type="text" className={I('p_addr1')} {...register('p_addr1')} />
-          </FormField>
-        </div>
-        <FormField label="Address 2">
-          <input type="text" className={I('p_addr2')} {...register('p_addr2')} />
-        </FormField>
-        <FormField label="Phone" error={errors.p_phone_no?.message}>
-          <input type="tel" className={I('p_phone_no')} {...register('p_phone_no')} />
-        </FormField>
-        <div className="sm:col-span-2">
-          <FormField label="Email" error={errors.p_email_no?.message}>
-            <input type="email" className={I('p_email_no')} {...register('p_email_no')} />
-          </FormField>
-        </div>
-        <FormField label="GST" error={errors.p_gst_no?.message}>
-          <input type="text" className={I('p_gst_no')} {...register('p_gst_no')} />
-        </FormField>
-        <FormField label="PAN" error={errors.p_pan_no?.message}>
-          <input type="text" className={I('p_pan_no')} {...register('p_pan_no')} />
-        </FormField>
-        <FormField label="TAN" error={errors.p_tan_no?.message}>
-          <input type="text" className={I('p_tan_no')} {...register('p_tan_no')} />
+    {showParent && (
+      <div className="md:col-span-4">
+        <FormField label={parentLabel} loading={parentLoading}>
+          <select
+            className={cn('form-select', parentLoading && 'opacity-60')}
+            disabled={parentLoading || parentDD.length === 0}
+            {...register('p_ADMIN_COMPANY_NGRPID', { valueAsNumber: true })}
+          >
+            <option value={0}>-- Select --</option>
+            {parentDD.map((opt) => (
+              <option key={opt.id} value={opt.id}>{opt.name}</option>
+            ))}
+          </select>
         </FormField>
       </div>
-    </form>
+    )}
+  </div>
+
+  {/* Row 2 — Name */}
+  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4">
+  <div className="md:col-span-6">
+    <FormField label="Name of Group/Company/Branch/Unit" required error={errors.p_ADMIN_COMPANY_SNAME?.message}>
+      <input
+        type="text"
+        className={I('p_ADMIN_COMPANY_SNAME')}
+        {...register('p_ADMIN_COMPANY_SNAME')}
+      />
+    </FormField>
+  </div>
+  <div className="md:col-span-3">
+    <FormField label="Short Name / Prefix" error={errors.p_short_name?.message}>
+      <input type="text" className={I('p_short_name')} {...register('p_short_name')} />
+    </FormField>
+  </div>
+</div>
+
+<hr className="my-4 border-slate-100" />
+
+{/* Row 3 — Address, Phone, Email, GST, PAN, TAN */}
+<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+  <div className="sm:col-span-2">
+    <FormField label="Address 1">
+      <input type="text" className={I('p_addr1')} {...register('p_addr1')} />
+    </FormField>
+  </div>
+  <FormField label="Address 2">
+    <input type="text" className={I('p_addr2')} {...register('p_addr2')} />
+  </FormField>
+  <FormField label="Phone">
+    <input type="tel" className={I('p_phone_no')} {...register('p_phone_no')} />
+  </FormField>
+  <div className="sm:col-span-2">
+    <FormField label="Email" error={errors.p_email_no?.message}>
+      <input type="email" className={I('p_email_no')} {...register('p_email_no')} />
+    </FormField>
+  </div>
+  <FormField label="GST">
+    <input type="text" className={I('p_gst_no')} {...register('p_gst_no')} />
+  </FormField>
+  <FormField label="PAN">
+    <input type="text" className={I('p_pan_no')} {...register('p_pan_no')} />
+  </FormField>
+  <FormField label="TAN">
+    <input type="text" className={I('p_tan_no')} {...register('p_tan_no')} />
+  </FormField>
+</div>
+</form>
   );
 }

@@ -29,3 +29,12 @@ export const getAllCompanies = (page = 1, pageSize = 5, search = '') =>
   axiosClient
     .get('/api/company-master/all', { params: { page, pageSize, ShowActiveOnly: 1 } })
     .then((r) => r.data);
+
+
+// For dropdowns — no pagination, returns all
+export const getCompaniesForDropdown = (layerId?: number) =>
+  axiosClient
+    .get('/api/company-master/dropdown', {
+      params: { ShowActiveOnly: 1, ...(layerId && { LayerID: layerId }) },
+    })
+    .then((r) => r.data);
