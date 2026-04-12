@@ -121,6 +121,27 @@ export interface CompanyFormValues {
   p_fax_no: string;
 }
 
+export interface CompanyPayload {
+  CompanyID: number;
+  Code: string;
+  Description: string;
+  LayerID: number;
+  LevelNo: number;
+  ParentCompanyID: number;
+  MasterLevel: number;
+  InActive: boolean;
+  RecordState: number;
+  Address: string;
+  Address2: string;
+  Address3: string;
+  Phone: string;
+  Fax: string;
+  EMail: string;
+  PANNo: string;
+  TANNo: string;
+  GSTIN: string;
+}
+
 // ── Department ────────────────────────────────────────────
 export interface Department {
   ADMIN_DEPRT_NID: number;

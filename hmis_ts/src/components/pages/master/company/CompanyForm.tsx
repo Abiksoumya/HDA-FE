@@ -5,13 +5,20 @@ import * as Yup from 'yup';
 import { getCompanyGroup, getCompanyLayers,getAllCompanies, getCompaniesForDropdown } from '@/apis/master/companyApi';
 import FormField from '@/components/shared/FormField';
 import { cn } from '@/utils/cn';
-import type { Company, CompanyFormValues, CompanyLayer } from '@/types';
+import type { Company, CompanyFormValues, CompanyLayer, CompanyPayload,  } from '@/types';
 
 const schema = Yup.object({
   p_ADMIN_COMPANY_SNAME: Yup.string()
     .required('Name is required')
     .min(2, 'Must be at least 2 characters'),
-  p_email_no: Yup.string().email('Invalid email address').notRequired(),
+  p_short_name: Yup.string()
+    .required('Code is required')
+    .max(3, 'Max 3 characters'),
+  p_addr1: Yup.string()
+    .required('Address is required'),
+  p_email_no: Yup.string()
+    .email('Invalid email address')
+    .notRequired(),
 });
 
 interface ParentOption {
@@ -21,7 +28,7 @@ interface ParentOption {
 
 interface Props {
   company: Company | null;
-  onSave: (data: CompanyFormValues) => void;
+  onSave: (data: CompanyPayload) => void;
 }
 
 export default function CompanyForm({ company, onSave }: Props) {
@@ -69,21 +76,22 @@ export default function CompanyForm({ company, onSave }: Props) {
     }
 
     if (layerId === 2) {
-      // Company → show Group Companies
-      setParentLabel('Select Group Company');
-      setParentLoading(true);
-      getCompanyGroup()
-        .then((r) => {
-          const data = r?.data?.data ?? [];
-          setParentDD(data.map((d: { ADMIN_COMPANY_NID: number; ADMIN_COMPANY_SNAME: string }) => ({
-            id: d.ADMIN_COMPANY_NID,
-            name: d.ADMIN_COMPANY_SNAME,
-          })));
-        })
-        .catch(() => setParentDD([]))
-        .finally(() => setParentLoading(false));
-      return;
-    }
+  setParentLabel('Select Group Company');
+  setParentLoading(true);
+  getCompanyGroup()
+    .then((r) => {
+      const data = r?.data?.data ?? [];
+      setParentDD(
+        data.map((d: { CompanyID: number; Description: string }) => ({
+          id: d.CompanyID,      // ← CompanyID not ADMIN_COMPANY_NID
+          name: d.Description,  // ← Description not ADMIN_COMPANY_SNAME
+        })),
+      );
+    })
+    .catch(() => setParentDD([]))
+    .finally(() => setParentLoading(false));
+  return;
+}
 
     // Branch → Companies (LayerID = 2)
 if (layerId === 3) {
@@ -150,8 +158,39 @@ if (layerId === 4) {
   const I = (name: keyof CompanyFormValues, extra?: string) =>
     cn('form-input', errors[name] && 'border-red-400 focus:ring-red-400/40', extra);
 
+  const onSubmit = (data: CompanyFormValues) => {
+  console.log('Form data:', data); // ← check p_ADMIN_COMPANY_NGRPID value
+
+  const payload = {
+    CompanyID: data.p_ADMIN_COMPANY_NID ?? 0,
+    Code: data.p_short_name,
+    Description: data.p_ADMIN_COMPANY_SNAME,
+    LayerID: Number(data.p_ADIMN_CMPN_LAYER_NID),
+    LevelNo: 0,
+    ParentCompanyID: Number(data.p_ADMIN_COMPANY_NGRPID) ?? 0,
+    MasterLevel: 1,
+    InActive: false,
+    RecordState: data.p_ADMIN_COMPANY_NID ? 2 : 1,
+    // Flat — no nested Profile
+    Address: data.p_addr1 ?? '',
+    Address2: data.p_addr2 ?? '',
+    Address3: data.p_addr3 ?? '',
+    Phone: data.p_phone_no ?? '',
+    Fax: data.p_fax_no ?? '',
+    EMail: data.p_email_no ?? '',
+    PANNo: data.p_pan_no ?? '',
+    TANNo: data.p_tan_no ?? '',
+    GSTIN: data.p_gst_no ?? '',
+  };
+      console.log('Payload:', payload); // ← check final payload
+
+  onSave(payload);
+};
+
+
+
   return (
-    <form id="company-form" onSubmit={handleSubmit(onSave)} noValidate>
+<form id="company-form" onSubmit={handleSubmit(onSubmit)} noValidate>
   {/* Row 1 — Company Layer + Parent */}
   <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4">
     <div className="md:col-span-3">

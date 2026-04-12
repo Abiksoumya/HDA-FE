@@ -9,8 +9,17 @@ export const getCompanyLayers = (p_CMPN_LAYER_NID?: number): LayerListResponse =
   return axiosClient.get('api/companies/company-layers', { params });
 };
 
-export const getCompanyGroup = (): CompanyListResponse =>
-  axiosClient.get('/api/companies/get-group-company');
+export const getCompanyGroup = () =>
+  axiosClient
+    .get('/api/company-master/dropdown')
+    .then((r) => {
+      const all = r?.data?.data ?? [];
+      return {
+        data: {
+          data: all.filter((c: { GroupFlag: string }) => c.GroupFlag === 'Y'),
+        },
+      };
+    });
 
 export const getCompanySearch = (
   s_ADMIN_COMPANY_NID?: number,
@@ -38,3 +47,8 @@ export const getCompaniesForDropdown = (layerId?: number) =>
       params: { ShowActiveOnly: 1, ...(layerId && { LayerID: layerId }) },
     })
     .then((r) => r.data);
+
+
+
+export const saveCompany = (data: unknown) =>
+  axiosClient.post('/api/company-master', data).then((r) => r.data);

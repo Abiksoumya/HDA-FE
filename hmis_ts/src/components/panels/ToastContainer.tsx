@@ -45,7 +45,7 @@ function ToastItem({ id, message, type }: { id: string; message: string; type: k
 export default function ToastContainer() {
   const toasts = useAppSelector((s) => s.ui.toasts);
   return (
-    <div className="fixed bottom-5 right-5 z-[100] flex flex-col gap-2 pointer-events-none">
+    <div className="fixed top-5 right-5 z-[100] flex flex-col gap-2 pointer-events-none">
       {toasts.map((t) => (
         <div key={t.id} className="pointer-events-auto">
           <ToastItem {...t} type={t.type} />

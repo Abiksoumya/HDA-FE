@@ -24,7 +24,7 @@ export default function PageCard({ title, actions, footer, children, className, 
 
       {/* Footer card */}
       {(footer || actions) && (
-        <div className={cn('bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-3 flex items-center justify-between gap-3', footerClassName)}>
+        <div className={cn(' px-5 py-3 flex items-center justify-between gap-3', footerClassName)}>
           {footer ?? actions}
         </div>
       )}
