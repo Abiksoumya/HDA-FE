@@ -96,6 +96,8 @@ export interface Company {
   HierarchyPath?: string;
   ADIMN_CMPN_LAYER_SDESC?: string;
   ADIMN_CMPN_LAYER_SDSPFLG?: string;
+    ADMIN_COMPANY_INACTIVE?: boolean;
+
 }
 
 export interface CompanyLayer {

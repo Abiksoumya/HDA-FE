@@ -4,15 +4,32 @@ import { getAllCompanies } from '@/apis/master/companyApi';
 import type { Company } from '@/types';
 
 interface CompanyRecord {
+  RecordNo: number;
   CompanyID: number;
   Code: string;
   Description: string;
-  ParentCompany: string;
+  LayerID: number;
+  LevelNo: number;
+  ParentCompanyID: number;
   GroupFlag: string;
+  GroupFlagDisplay: string;
+  MasterLevel: number;
+  InActive: boolean;
+  InActiveDisplay: string;
+  ParentCompany: string;
   CompanyProfile: {
+    CompanyID: number;
     Address: string;
+    Address2: string;
+    Address3: string;
     Phone: string;
+    Fax: string;
     EMail: string;
+    PANNo: string;
+    TANNo: string;
+    GSTIN: string;
+    InActive: boolean;
+    InActiveDisplay: string;
   };
 }
 
@@ -63,14 +80,21 @@ export default function CompanySearch({ onSelect, onEdit }: Props) {
     fetchPage(1);
   }, []);
 
-  const toCompany = (r: CompanyRecord): Company => ({
-    ADMIN_COMPANY_NID: r.CompanyID,
-    ADMIN_COMPANY_SNAME: r.Description,
-    ADMIN_COMPANY_SHORTNAME: r.Code,
-    ADMIN_COMPANY_PROFILE_SADDR: r.CompanyProfile?.Address ?? '',
-    ADMIN_COMPANY_PROFILE_SPHONE: r.CompanyProfile?.Phone ?? '',
-    ADMIN_COMPANY_PROFILE_SEMAIL: r.CompanyProfile?.EMail ?? '',
-  } as Company);
+ const toCompany = (r: CompanyRecord): Company => ({
+  ADMIN_COMPANY_NID: r.CompanyID,
+  ADMIN_COMPANY_SNAME: r.Description,
+  ADMIN_COMPANY_SHORTNAME: r.Code,
+  ADIMN_CMPN_LAYER_NID: r.LayerID,           // ← layer
+  ADMIN_COMPANY_NGRPID: r.ParentCompanyID,    // ← parent
+  ADMIN_COMPANY_PROFILE_SADDR: r.CompanyProfile?.Address ?? '',
+  ADMIN_COMPANY_PROFILE_SADDR1: r.CompanyProfile?.Address2 ?? '',
+  ADMIN_COMPANY_PROFILE_SPHONE: r.CompanyProfile?.Phone ?? '',
+  ADMIN_COMPANY_PROFILE_SEMAIL: r.CompanyProfile?.EMail ?? '',
+  ADMIN_COMPANY_PROFILE_SGST: r.CompanyProfile?.GSTIN ?? '',
+  ADMIN_COMPANY_PROFILE_SPAN: r.CompanyProfile?.PANNo ?? '',
+   ADMIN_COMPANY_PROFILE_STAN: r.CompanyProfile?.TANNo ?? '',
+  ADMIN_COMPANY_INACTIVE: r.InActive ?? false, // ← add this
+} as Company);
 
   const handleRowClick = (r: CompanyRecord) => {
     if (selectedId === r.CompanyID) {

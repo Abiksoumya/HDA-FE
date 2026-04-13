@@ -61,99 +61,102 @@ export default function CompanyForm({ company, onSave }: Props) {
 
   // When layer changes → load correct parent options
   useEffect(() => {
-    const layerId = Number(watchedLayerId);
+  const layerId = Number(watchedLayerId);
 
-    // Reset parent selection
+  // Don't reset parent if we're editing and layer matches company's layer
+  const isEditing = (company?.ADIMN_CMPN_LAYER_NID ?? 0) === layerId;
+  if (!isEditing) {
     setValue('p_ADMIN_COMPANY_NGRPID', 0);
     setParentDD([]);
+  }
 
-    if (!layerId || layerId === 0) return;
+  if (!layerId || layerId === 0) return;
+  if (layerId === 1) {
+    setParentLabel('Parent Group/Company');
+    setParentDD([]);
+    return;
+  }
 
-    if (layerId === 1) {
-      // Group Company — no parent needed
-      setParentLabel('Parent Group/Company');
-      setParentDD([]);
-      return;
-    }
+  if (layerId === 2) {
+    setParentLabel('Select Group Company');
+    setParentLoading(true);
+    getCompanyGroup()
+      .then((r) => {
+        const data = r?.data?.data ?? [];
+        setParentDD(
+          data.map((d: { CompanyID: number; Description: string }) => ({
+            id: d.CompanyID,
+            name: d.Description,
+          })),
+        );
+      })
+      .catch(() => setParentDD([]))
+      .finally(() => setParentLoading(false));
+    return;
+  }
 
-    if (layerId === 2) {
-  setParentLabel('Select Group Company');
-  setParentLoading(true);
-  getCompanyGroup()
-    .then((r) => {
-      const data = r?.data?.data ?? [];
-      setParentDD(
-        data.map((d: { CompanyID: number; Description: string }) => ({
-          id: d.CompanyID,      // ← CompanyID not ADMIN_COMPANY_NID
-          name: d.Description,  // ← Description not ADMIN_COMPANY_SNAME
-        })),
-      );
-    })
-    .catch(() => setParentDD([]))
-    .finally(() => setParentLoading(false));
-  return;
-}
+  if (layerId === 3) {
+    setParentLabel('Select Company');
+    setParentLoading(true);
+    getCompaniesForDropdown(2)
+      .then((r) => {
+        const data = r?.data ?? [];
+        setParentDD(data.map((c: { CompanyID: number; Description: string }) => ({
+          id: c.CompanyID,
+          name: c.Description,
+        })));
+      })
+      .catch(() => setParentDD([]))
+      .finally(() => setParentLoading(false));
+    return;
+  }
 
-    // Branch → Companies (LayerID = 2)
-if (layerId === 3) {
-  setParentLabel('Select Company');
-  setParentLoading(true);
-  getCompaniesForDropdown(2)
-    .then((r) => {
-      const data = r?.data ?? [];
-      setParentDD(data.map((c: { CompanyID: number; Description: string }) => ({
-        id: c.CompanyID,
-        name: c.Description,
-      })));
-    })
-    .catch(() => setParentDD([]))
-    .finally(() => setParentLoading(false));
-  return;
-}
-
-// Unit → Branches (LayerID = 3)
-if (layerId === 4) {
-  setParentLabel('Select Branch');
-  setParentLoading(true);
-  getCompaniesForDropdown(3)
-    .then((r) => {
-      const data = r?.data ?? [];
-      setParentDD(data.map((c: { CompanyID: number; Description: string }) => ({
-        id: c.CompanyID,
-        name: c.Description,
-      })));
-    })
-    .catch(() => setParentDD([]))
-    .finally(() => setParentLoading(false));
-  return;
-}
-  }, [watchedLayerId, setValue]);
+  if (layerId === 4) {
+    setParentLabel('Select Branch');
+    setParentLoading(true);
+    getCompaniesForDropdown(3)
+      .then((r) => {
+        const data = r?.data ?? [];
+        setParentDD(data.map((c: { CompanyID: number; Description: string }) => ({
+          id: c.CompanyID,
+          name: c.Description,
+        })));
+      })
+      .catch(() => setParentDD([]))
+      .finally(() => setParentLoading(false));
+    return;
+  }
+}, [watchedLayerId, setValue, company]);
 
   // Populate form when editing
   useEffect(() => {
-    if (company?.ADMIN_COMPANY_NID) {
-      reset({
-        p_ADMIN_COMPANY_NID: company.ADMIN_COMPANY_NID,
-        p_ADMIN_COMPANY_NGRPID: company.ADMIN_COMPANY_NGRPID ?? 0,
-        p_ADIMN_CMPN_LAYER_NID: company.ADIMN_CMPN_LAYER_NID ?? 0,
-        p_ADMIN_COMPANY_SNAME: company.ADMIN_COMPANY_SNAME ?? '',
-        p_short_name: company.ADMIN_COMPANY_SHORTNAME ?? '',
-        p_addr1: company.ADMIN_COMPANY_PROFILE_SADDR ?? '',
-        p_addr2: company.ADMIN_COMPANY_PROFILE_SADDR1 ?? '',
-        p_addr3: '', p_phone_no: company.ADMIN_COMPANY_PROFILE_SPHONE ?? '',
-        p_email_no: company.ADMIN_COMPANY_PROFILE_SEMAIL ?? '',
-        p_gst_no: company.ADMIN_COMPANY_PROFILE_SGST ?? '',
-        p_pan_no: company.ADMIN_COMPANY_PROFILE_SPAN ?? '',
-        p_tan_no: company.ADMIN_COMPANY_PROFILE_STAN ?? '', p_fax_no: '',
-      });
-    } else {
-      reset({
-        p_ADMIN_COMPANY_NID: 0, p_ADMIN_COMPANY_NGRPID: 0, p_ADIMN_CMPN_LAYER_NID: 0,
-        p_ADMIN_COMPANY_SNAME: '', p_short_name: '', p_addr1: '', p_addr2: '', p_addr3: '',
-        p_phone_no: '', p_email_no: '', p_gst_no: '', p_pan_no: '', p_tan_no: '', p_fax_no: '',
-      });
-    }
-  }, [company, reset]);
+  if (company?.ADMIN_COMPANY_NID) {
+    reset({
+      p_ADMIN_COMPANY_NID: company.ADMIN_COMPANY_NID,
+      p_ADMIN_COMPANY_NGRPID: company.ADMIN_COMPANY_NGRPID ?? 0,
+      p_ADIMN_CMPN_LAYER_NID: company.ADIMN_CMPN_LAYER_NID ?? 0, // ← triggers parent dropdown load
+      p_ADMIN_COMPANY_SNAME: company.ADMIN_COMPANY_SNAME ?? '',
+      p_short_name: company.ADMIN_COMPANY_SHORTNAME ?? '',
+      p_addr1: company.ADMIN_COMPANY_PROFILE_SADDR ?? '',
+      p_addr2: company.ADMIN_COMPANY_PROFILE_SADDR1 ?? '',
+      p_addr3: '',
+      p_phone_no: company.ADMIN_COMPANY_PROFILE_SPHONE ?? '',
+      p_email_no: company.ADMIN_COMPANY_PROFILE_SEMAIL ?? '',
+      p_gst_no: company.ADMIN_COMPANY_PROFILE_SGST ?? '',
+      p_pan_no: company.ADMIN_COMPANY_PROFILE_SPAN ?? '',
+      p_tan_no: company.ADMIN_COMPANY_PROFILE_STAN ?? '',
+      p_fax_no: '',
+      p_inactive: company.ADMIN_COMPANY_INACTIVE ?? false,
+    });
+  } else {
+    reset({
+      p_ADMIN_COMPANY_NID: 0, p_ADMIN_COMPANY_NGRPID: 0, p_ADIMN_CMPN_LAYER_NID: 0,
+      p_ADMIN_COMPANY_SNAME: '', p_short_name: '', p_addr1: '', p_addr2: '', p_addr3: '',
+      p_phone_no: '', p_email_no: '', p_gst_no: '', p_pan_no: '', p_tan_no: '', p_fax_no: '',
+      p_inactive: false,
+    });
+  }
+}, [company, reset]);
 
   const showParent = Number(watchedLayerId) > 1; // hide for Group Company
   const I = (name: keyof CompanyFormValues, extra?: string) =>
