@@ -119,6 +119,7 @@ export interface CompanyFormValues {
   p_pan_no: string;
   p_tan_no: string;
   p_fax_no: string;
+  p_inactive: boolean;
 }
 
 export interface CompanyPayload {

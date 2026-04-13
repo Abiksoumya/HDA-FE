@@ -38,13 +38,14 @@ export default function CompanyForm({ company, onSave }: Props) {
   const [ddLoaded, setDdLoaded] = useState(false);
   const [parentLoading, setParentLoading] = useState(false);
 
-  const { register, handleSubmit, formState: { errors }, reset, setValue, control } =
+  const { register, handleSubmit, formState: { errors }, reset, setValue, control,watch  } =
     useForm<CompanyFormValues>({
       resolver: yupResolver(schema) as never,
       defaultValues: {
         p_ADMIN_COMPANY_NID: 0, p_ADMIN_COMPANY_NGRPID: 0, p_ADIMN_CMPN_LAYER_NID: 0,
         p_ADMIN_COMPANY_SNAME: '', p_short_name: '', p_addr1: '', p_addr2: '', p_addr3: '',
         p_phone_no: '', p_email_no: '', p_gst_no: '', p_pan_no: '', p_tan_no: '', p_fax_no: '',
+        p_inactive: false,
       },
     });
 
@@ -169,7 +170,6 @@ if (layerId === 4) {
     LevelNo: 0,
     ParentCompanyID: Number(data.p_ADMIN_COMPANY_NGRPID) ?? 0,
     MasterLevel: 1,
-    InActive: false,
     RecordState: data.p_ADMIN_COMPANY_NID ? 2 : 1,
     // Flat — no nested Profile
     Address: data.p_addr1 ?? '',
@@ -181,6 +181,8 @@ if (layerId === 4) {
     PANNo: data.p_pan_no ?? '',
     TANNo: data.p_tan_no ?? '',
     GSTIN: data.p_gst_no ?? '',
+    InActive: data.p_inactive ?? false,
+
   };
       console.log('Payload:', payload); // ← check final payload
 
@@ -191,26 +193,31 @@ if (layerId === 4) {
 
   return (
 <form id="company-form" onSubmit={handleSubmit(onSubmit)} noValidate>
-  {/* Row 1 — Company Layer + Parent */}
-  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4">
-    <div className="md:col-span-3">
-      <FormField label="Company Layer" loading={!ddLoaded}>
-        <select
-          className={cn('form-select', !ddLoaded && 'opacity-60')}
-          disabled={!ddLoaded}
-          {...register('p_ADIMN_CMPN_LAYER_NID', { valueAsNumber: true })}
-        >
-          <option value={0}>-- Select --</option>
-          {companyLayerDD.map((l) => (
-            <option key={l.ADIMN_CMPN_LAYER_NID} value={l.ADIMN_CMPN_LAYER_NID}>
-              {l.ADIMN_CMPN_LAYER_SDESC}
-            </option>
-          ))}
-        </select>
-      </FormField>
-    </div>
+  {/* Row 1 — Company Layer + Parent Layer Label + Parent Dropdown */}
+<div className="flex items-end justify-between gap-4 mb-4">
+<div className="grid grid-cols-1 md:grid-cols-12 gap-4 flex-1">
+  <div className="md:col-span-3">
+    <FormField label="Company Layer" loading={!ddLoaded}>
+      <select
+        className={cn('form-select', !ddLoaded && 'opacity-60')}
+        disabled={!ddLoaded}
+        {...register('p_ADIMN_CMPN_LAYER_NID', { valueAsNumber: true })}
+      >
+        <option value={0}>-- Select --</option>
+        {companyLayerDD.map((l) => (
+          <option key={l.ADIMN_CMPN_LAYER_NID} value={l.ADIMN_CMPN_LAYER_NID}>
+            {l.ADIMN_CMPN_LAYER_SDESC}
+          </option>
+        ))}
+      </select>
+    </FormField>
+        </div>
+        
 
-    {showParent && (
+  {showParent && (
+    <>
+
+      {/* Parent dropdown */}
       <div className="md:col-span-4">
         <FormField label={parentLabel} loading={parentLoading}>
           <select
@@ -224,9 +231,43 @@ if (layerId === 4) {
             ))}
           </select>
         </FormField>
+            </div>
+            <div className="md:col-span-4 flex flex-col justify-end pb-2">
+        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">
+          Parent Type
+        </span>
+        <span className="text-sm font-medium text-gray-600">
+          {Number(watchedLayerId) === 2 && 'Group Company'}
+          {Number(watchedLayerId) === 3 && 'Company'}
+          {Number(watchedLayerId) === 4 && 'Branch'}
+        </span>
       </div>
+    </>
+  )}
+</div>
+      {/* InActive Toggle */}
+<div className="flex items-center gap-3 mb-4">
+  <span className="text-xs font-medium text-slate-600">Status</span>
+  <button
+    type="button"
+    onClick={() => setValue('p_inactive', !watch('p_inactive'))}
+    className={cn(
+      'relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200',
+      watch('p_inactive') ? 'bg-red-600' : 'bg-emerald-700',
     )}
-  </div>
+  >
+    <span
+      className={cn(
+        'inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform duration-200',
+        watch('p_inactive') ? 'translate-x-1' : 'translate-x-4',
+      )}
+    />
+  </button>
+  {/* <span className={cn('text-xs font-medium', watch('p_inactive') ? 'text-red-500' : 'text-emerald-600')}>
+    {watch('p_inactive') ? 'Inactive' : 'Active'}
+  </span> */}
+        </div>
+        </div>
 
   {/* Row 2 — Name */}
   <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4">
