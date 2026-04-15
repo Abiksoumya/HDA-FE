@@ -4,8 +4,13 @@ import type { Company, DeptMappingItem, CompanyDeptFormValues } from '@/types';
 type BranchListResponse = Promise<{ data: { data: Company[] } }>;
 type DeptResponse = Promise<{ data: { data: DeptMappingItem[] } }>;
 
-export const getCompanyBranch = (): BranchListResponse =>
-  axiosClient.get('/api/master/branch-units');
+// export const getCompanyBranch = (): BranchListResponse =>
+//   axiosClient.get('/api/master/branch-units');
+
+export const getCompanyBranch = () =>
+  axiosClient
+    .get('/api/company-master/dropdown')
+    .then((r) => r.data);
 
 export const getCompanySearch = (
   s_ADMIN_COMPANY_NID?: number,
@@ -25,3 +30,12 @@ export const getCompantDepartmentInfo = (s_ADMIN_COMPANY_NID: number): DeptRespo
 
 export const saveGroupCompany = (data: CompanyDeptFormValues) =>
   axiosClient.post('/api/companies/save-department', data).then((r) => r.data);
+
+
+export const getCompanyDepartmentMapping = (companyId: number) =>
+  axiosClient
+    .get('/api/company-department/mapping', { params: { CompanyID: companyId } })
+    .then((r) => r.data);
+
+export const saveCompanyDepartmentMapping = (data: unknown) =>
+  axiosClient.post('/api/company-department/mapping', data).then((r) => r.data);

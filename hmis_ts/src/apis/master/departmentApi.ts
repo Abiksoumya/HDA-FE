@@ -1,17 +1,15 @@
 import { axiosClient } from '@/utils/apiClient';
-import type { Department, DepartmentFormValues } from '@/types';
+import type { DepartmentFormValues } from '@/types';
 
-type DeptListResponse = Promise<{ data: { data: Department[] } }>;
+export const getAllDepartments = (page = 1, pageSize = 5) =>
+  axiosClient
+    .get('/api/department-master/all', { params: { page, pageSize, ShowActiveOnly: 1 } })
+    .then((r) => r.data);
 
-export const getDepartmentSearch = (
-  s_ADMIN_DEPRT_NID?: number,
-  s_ADMIN_DEPRT_SNAME?: string,
-): DeptListResponse => {
-  const params: Record<string, unknown> = {};
-  if (s_ADMIN_DEPRT_NID != null) params.p_ADMIN_DEPRT_NID = s_ADMIN_DEPRT_NID;
-  if (s_ADMIN_DEPRT_SNAME?.trim()) params.p_ADMIN_DEPRT_SNAME = s_ADMIN_DEPRT_SNAME.trim();
-  return axiosClient.get('/api/master/get-department', { params });
-};
+export const getDepartmentsForDropdown = () =>
+  axiosClient
+    .get('/api/department-master/dropdown', { params: { ShowActiveOnly: 1 } })
+    .then((r) => r.data);
 
-export const saveDepartment = (data: DepartmentFormValues) =>
-  axiosClient.post('/api/master/departments/save', data).then((r) => r.data);
+export const saveDepartment = (data: unknown) =>
+  axiosClient.post('/api/department-master', data).then((r) => r.data);

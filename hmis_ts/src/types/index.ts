@@ -178,21 +178,30 @@ export interface AdminGroupFormValues {
 
 // ── Company Department ────────────────────────────────────
 export interface DeptMappingItem {
-  ADMIN_DEPRT_NID: number;
-  ADMIN_DEPRT_SNAME: string;
+  RecordNo?: number;
+  DepartmentID: number;
+  Code?: string;
+  Department?: string;
+  ADMIN_DEPRT_SNAME?: string;
+  ControlFlag?: number;
+  InActive?: boolean;
+  IsMapped?: boolean;
+  InActiveDisplay?: string;
+  IsMappedDisplay?: string;
   IsSelected?: boolean | number;
   ADMIN_CMPNY_DEPRT_CTRL_NFLG?: boolean | number;
+  IsActive?: boolean | number;
 }
 
-export interface CompanyDeptFormValues {
-  ADMIN_CMPNY_DEPRT_NCMPNYID: number;
-  ADMIN_CMPNY_DEPRT_NCMPNYGRPID: number;
-  departments: {
-    ADMIN_DEPRT_NID: number;
-    IsSelected: number;
-    ADMIN_CMPNY_DEPRT_CTRL_NFLG: number;
-  }[];
-}
+// export interface CompanyDeptFormValues {
+//   ADMIN_CMPNY_DEPRT_NCMPNYID: number;
+//   ADMIN_CMPNY_DEPRT_NCMPNYGRPID: number;
+//   departments: {
+//     ADMIN_DEPRT_NID: number;
+//     IsSelected: number;
+//     ADMIN_CMPNY_DEPRT_CTRL_NFLG: number;
+//   }[];
+// }
 
 // ── Dropdown options ──────────────────────────────────────
 export interface GenderOption { GenderId: number; GenderName: string; }
@@ -283,4 +292,30 @@ export interface OpdListItem {
   TotalRecords?: number;
 }
 
+export interface Department {
+  DepartmentID: number;
+  Code: string;
+  Description: string;
+  InActive: boolean;
+  InActiveDisplay?: string;
+  RecordNo?: number;
+  [key: string]: unknown;
+}
+
+export interface DepartmentFormValues {
+  p_ADMIN_DEPRT_NID: number;
+  p_ADMIN_DEPRT_SNAME: string;
+  p_ADMIN_DEPRT_SPREFIX: string;
+  p_inactive: boolean;
+}
+export interface CompanyDeptFormValues {
+  ADMIN_CMPNY_DEPRT_NCMPNYID: number;
+  ADMIN_CMPNY_DEPRT_NCMPNYGRPID: number;
+  departments: {
+    ADMIN_DEPRT_NID: number;
+    IsSelected: number;
+    ADMIN_CMPNY_DEPRT_CTRL_NFLG: number;
+    IsActive: number;
+  }[];
+}
 
