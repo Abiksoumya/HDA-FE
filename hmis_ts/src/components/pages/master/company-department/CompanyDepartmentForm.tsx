@@ -251,19 +251,19 @@ useEffect(() => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide w-16">
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide w-24">
                     SL No.
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
                     Department
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide w-36">
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide ">
                     Map
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide w-36">
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide">
                     Control
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide w-36">
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide ">
                     Active
                   </th>
                 </tr>

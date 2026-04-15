@@ -64,11 +64,14 @@ export default function DepartmentRow({ index, control, register, setValue, depa
       {/* SL No */}
       <td className="px-4 py-3 text-slate-400 text-sm text-center">{index + 1}</td>
 
-      {/* Department name */}
-      <td className="px-4 py-3 text-sm text-slate-700 font-medium">
-        {department?.ADMIN_DEPRT_SNAME}
-        <input type="hidden" {...register(`departments.${index}.ADMIN_DEPRT_NID`, { valueAsNumber: true })} />
-      </td>
+     {/* Department name */}
+<td className="px-4 py-3 text-sm text-slate-700 font-medium">
+  {department?.Department ?? department?.ADMIN_DEPRT_SNAME ?? ''}
+  <input
+    type="hidden"
+    {...register(`departments.${index}.ADMIN_DEPRT_NID`, { valueAsNumber: true })}
+  />
+</td>
 
       {/* Map toggle */}
       <td className="px-4 py-3 text-center">
