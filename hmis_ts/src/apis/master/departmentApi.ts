@@ -3,7 +3,7 @@ import type { DepartmentFormValues } from '@/types';
 
 export const getAllDepartments = (page = 1, pageSize = 5) =>
   axiosClient
-    .get('/api/department-master/all', { params: { page, pageSize, ShowActiveOnly: 1 } })
+    .get('/api/department-master/all', { params: { page, pageSize, ShowActiveOnly: 0 } })
     .then((r) => r.data);
 
 export const getDepartmentsForDropdown = () =>

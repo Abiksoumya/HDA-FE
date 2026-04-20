@@ -7,7 +7,8 @@ import FormField from '@/components/shared/FormField';
 import DepartmentRow from './DepartmentRow';
 import { cn } from '@/utils/cn';
 import type { Company, CompanyDeptFormValues, DeptMappingItem } from '@/types';
-import { ChevronDown, Check } from 'lucide-react';
+import { ChevronDown, Check, ChevronRight, ChevronLeft } from 'lucide-react';
+import { useToast } from '@/hooks/useToast';
 
 
 const schema = Yup.object({
@@ -23,6 +24,15 @@ interface BranchOption {
   Description: string;
   ParentCompanyID?: number;
 }
+
+interface DeptChange {
+  DepartmentID: number;
+  IsSelected: number;
+  ControlFlag: number;
+  IsActive: number;
+  wasOriginallyMapped: boolean;
+}
+
 
 // Add this custom dropdown component inside the file
 function BranchDropdown({
@@ -116,6 +126,9 @@ const [branchDD, setBranchDD] = useState<BranchOption[]>([]);
   const [ddLoaded, setDdLoaded] = useState(false);
   const [deptLoading, setDeptLoading] = useState(false);
   const [companyParentID, setCompanyParentID] = useState(0);
+  const [changesMap, setChangesMap] = useState<Map<number, DeptChange>>(new Map());
+  const { toast } = useToast();
+
 
   const { register, handleSubmit, formState: { errors }, setValue, control } =
     useForm<CompanyDeptFormValues>({
@@ -129,7 +142,48 @@ const [branchDD, setBranchDD] = useState<BranchOption[]>([]);
 
   const { fields, append, remove } = useFieldArray({ control, name: 'departments' });
   const watchedBranch = useWatch({ control, name: 'ADMIN_CMPNY_DEPRT_NCMPNYID' });
+const handleToggleChange = (
+  dept: DeptMappingItem,
+  field: 'IsSelected' | 'ControlFlag' | 'IsActive',
+  value: number,
+) => {
+  setChangesMap((prev) => {
+    const updated = new Map(prev);
+    const existing = updated.get(dept.DepartmentID) ?? {
+      DepartmentID: dept.DepartmentID,
+      IsSelected: dept.IsMapped ? 1 : 0,
+      ControlFlag: dept.ControlFlag ?? 0,
+      IsActive: dept.InActive ? 0 : 1,
+      wasOriginallyMapped: dept.IsMapped ?? false,
+      wasSoftDeleted: false,
+    };
 
+    const newEntry = { ...existing };
+if (field === 'IsSelected') {
+  newEntry.IsSelected = value;
+  // When newly mapping — keep IsActive as 0, user sets manually
+  if (value === 1 && !existing.wasOriginallyMapped) {
+    newEntry.IsActive = 0;
+  }
+}
+if (field === 'ControlFlag') newEntry.ControlFlag = value;
+if (field === 'IsActive') newEntry.IsActive = value;
+
+    // If back to original state — remove from map
+    const isBackToOriginal =
+      newEntry.IsSelected === (dept.IsMapped ? 1 : 0) &&
+      newEntry.ControlFlag === (dept.ControlFlag ?? 0) &&
+      newEntry.IsActive === (dept.InActive ? 0 : 1);
+
+    if (isBackToOriginal) {
+      updated.delete(dept.DepartmentID);
+    } else {
+      updated.set(dept.DepartmentID, newEntry);
+    }
+
+    return updated;
+  });
+};
 // Load branch dropdown
 useEffect(() => {
   setDdLoaded(false);
@@ -143,16 +197,33 @@ useEffect(() => {
 }, []);
 
   // Load departments with mapping when branch changes
+// Add pagination states at the top with other states
+const [page, setPage] = useState(1);
+const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const PAGE_SIZE = 5;
+
+
+// Replace the useEffect
 useEffect(() => {
   if (!watchedBranch || Number(watchedBranch) === 0) {
     setDepartmentList([]);
     setCompanyParentID(0);
+    setPage(1);
+    setTotalPages(1);
+    setTotal(0);
+    setChangesMap(new Map()); // ← clear changes
     remove();
     return;
   }
+  setChangesMap(new Map()); // ← clear changes when switching company
+  loadDepartments(1);
+}, [watchedBranch]);
 
+// Add this function above the useEffect
+const loadDepartments = (p: number) => {
   setDeptLoading(true);
-  getCompanyDepartmentMapping(Number(watchedBranch))
+  getCompanyDepartmentMapping(Number(watchedBranch), p, PAGE_SIZE)
     .then((res) => {
       const data = res?.data;
 
@@ -161,18 +232,21 @@ useEffect(() => {
 
       const depts: DeptMappingItem[] = data?.Department ?? [];
 
-      // ← batch: remove all then append all at once
+      // ← use TotalRecords from SP response
+      const totalRecords = data?.TotalRecords ?? depts.length;
+      setTotal(totalRecords);
+      setTotalPages(Math.ceil(totalRecords / PAGE_SIZE));
+      setPage(p);
+
       remove();
-      const newFields = depts.map((d) => ({
-        ADMIN_DEPRT_NID: d.DepartmentID ?? 0,
-        IsSelected: d.IsMapped ? 1 : 0,
-        ADMIN_CMPNY_DEPRT_CTRL_NFLG: d.ControlFlag ?? 0,
-        IsActive: d.InActive ? 0 : 1,
-      }));
-
-      // Use replace instead of multiple appends
-      newFields.forEach((f) => append(f, { shouldFocus: false })); // ← shouldFocus: false stops scroll jump
-
+      depts.forEach((d) =>
+  append({
+    ADMIN_DEPRT_NID: d.DepartmentID ?? 0,
+    IsSelected: d.IsMapped ? 1 : 0,
+    ADMIN_CMPNY_DEPRT_CTRL_NFLG: d.ControlFlag ?? 0,
+    IsActive: d.IsMapped ? (d.InActive ? 0 : 1) : 0, // ← 0 if not mapped
+  }, { shouldFocus: false }),
+);
       setDepartmentList(depts);
     })
     .catch(() => {
@@ -180,22 +254,53 @@ useEffect(() => {
       remove();
     })
     .finally(() => setDeptLoading(false));
-}, [watchedBranch]);  // ← remove append/remove from deps to prevent re-trigger
+}; // ← remove append/remove from deps to prevent re-trigger
 
-  const handleSubmit2 = (data: CompanyDeptFormValues) => {
-    // Build payload matching SP structure
-    const payload = {
-      CompanyID: Number(data.ADMIN_CMPNY_DEPRT_NCMPNYID),
-      CompanyParentID: companyParentID,
-      Department: data.departments.map((d) => ({
-        DepartmentID: d.ADMIN_DEPRT_NID,
-        ControlFlag: d.ADMIN_CMPNY_DEPRT_CTRL_NFLG ?? 0,
-        InActive: d.IsActive === 1 ? false : true, // IsActive=1 means InActive=false
-        RecordState: d.IsSelected === 1 ? 1 : 2,   // 1=mapped, 2=unmapped
-      })),
-    };
-    onSave(payload);
+ const handleSubmit2 = (_data: CompanyDeptFormValues) => {
+  if (changesMap.size === 0) {
+    toast('No changes to save.', 'info');
+    return;
+  }
+
+  const departmentsToSave = Array.from(changesMap.values())
+    .filter((d) => {
+      // Skip: never mapped AND still not mapped
+      if (!d.wasOriginallyMapped && d.IsSelected === 0) return false;
+      return true;
+    })
+    .map((d) => {
+      let RecordState: number;
+
+      if (!d.wasOriginallyMapped && d.IsSelected === 1) {
+        // New mapping → INSERT
+        RecordState = 1;
+      } else {
+        // Update ControlFlag or Active → UPDATE
+        RecordState = 2;
+      }
+
+      return {
+        DepartmentID: d.DepartmentID,
+        ControlFlag: d.ControlFlag,
+        InActive: d.IsActive === 1 ? false : true,
+        RecordState,
+      };
+    });
+
+  if (departmentsToSave.length === 0) {
+    toast('No valid changes to save.', 'info');
+    return;
+  }
+
+  const payload = {
+    CompanyID: Number(watchedBranch),
+    CompanyParentID: companyParentID,
+    Department: departmentsToSave,
   };
+
+  console.log('Payload:', JSON.stringify(payload, null, 2));
+  onSave(payload);
+};
 
   return (
     <form id="company-dept-form" onSubmit={handleSubmit(handleSubmit2)} noValidate>
@@ -216,18 +321,24 @@ useEffect(() => {
   />
 </FormField>
         </div>
+  
 
         {/* Summary badge */}
         {Number(watchedBranch) !== 0 && !deptLoading && departmentList.length > 0 && (
-          <div className="flex items-center gap-2 pb-1">
-            <span className="badge badge-slate text-[11px]">
-              {departmentList.length} departments
-            </span>
-            <span className="badge badge-green text-[11px]">
-              {departmentList.filter((d) => d.IsMapped).length} mapped
-            </span>
-          </div>
-        )}
+  <div className="flex items-center gap-2 pb-1">
+    <span className="badge badge-slate text-[11px]">
+      {total} departments
+    </span>
+    <span className="badge badge-green text-[11px]">
+      {departmentList.filter((d) => d.IsMapped).length} mapped
+    </span>
+    {changesMap.size > 0 && (
+      <span className="badge badge-amber text-[11px]">
+        {changesMap.size} unsaved change{changesMap.size !== 1 ? 's' : ''}
+      </span>
+    )}
+  </div>
+)}
       </div>
 
       <input type="hidden" {...register('ADMIN_CMPNY_DEPRT_NCMPNYGRPID', { valueAsNumber: true })} />
@@ -279,20 +390,51 @@ useEffect(() => {
                   </tr>
                 ) : (
                   fields.map((field, index) => (
-                    <DepartmentRow
-                      key={field.id}
-                      index={index}
-                      control={control}
-                      register={register}
-                      setValue={setValue}
-                      department={departmentList[index]}
-                    />
-                  ))
+  <DepartmentRow
+    key={field.id}
+    index={index}
+    control={control}
+    register={register}
+    setValue={setValue}
+    department={departmentList[index]}
+    onToggleChange={handleToggleChange} // ← add this
+  />
+))
                 )}
-              </tbody>
-            </table>
+                </tbody>
+               
+              </table>
+              
           )}
         </div>
+         {totalPages > 1 && (
+  <div className="flex items-center justify-between mt-3 text-xs text-slate-500">
+    <span>
+      Showing page {page} of {totalPages} ({total} total departments)
+    </span>
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => loadDepartments(page - 1)}
+        disabled={page === 1 || deptLoading}
+        className="inline-flex items-center gap-1 px-3 py-1 rounded-md border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        <ChevronLeft size={13} /> Prev
+      </button>
+      <span className="w-8 h-7 flex items-center justify-center rounded-md bg-blue-600 text-white text-xs font-medium">
+        {page}
+      </span>
+      <button
+        type="button"
+        onClick={() => loadDepartments(page + 1)}
+        disabled={page === totalPages || deptLoading}
+        className="inline-flex items-center gap-1 px-3 py-1 rounded-md border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        Next <ChevronRight size={13} />
+      </button>
+    </div>
+  </div>
+)}
       </div>
     </form>
   );

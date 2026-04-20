@@ -32,9 +32,15 @@ export const saveGroupCompany = (data: CompanyDeptFormValues) =>
   axiosClient.post('/api/companies/save-department', data).then((r) => r.data);
 
 
-export const getCompanyDepartmentMapping = (companyId: number) =>
+export const getCompanyDepartmentMapping = (
+  companyId: number,
+  pageNo = 0,
+  pageSize = 0,
+) =>
   axiosClient
-    .get('/api/company-department/mapping', { params: { CompanyID: companyId } })
+    .get('/api/company-department/mapping', {
+      params: { CompanyID: companyId, PageNo: pageNo, PageSize: pageSize },
+    })
     .then((r) => r.data);
 
 export const saveCompanyDepartmentMapping = (data: unknown) =>
