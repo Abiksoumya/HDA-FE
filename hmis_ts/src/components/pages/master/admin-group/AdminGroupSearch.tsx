@@ -28,7 +28,7 @@ export default function AdminGroupSearch({ onSelect, onEdit }: Props) {
   }, []);
 
   return (
-    <DataTable<AdminGroup>
+    <DataTable<any>
       columns={COLUMNS}
       fetchData={fetchData}
       rowKey="ADMIN_GROUP_NID"

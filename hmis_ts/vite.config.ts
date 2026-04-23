@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig({
+  base: '/hda/',   // 🔥 IMPORTANT
+
   plugins: [react()],
   resolve: {
     alias: {
