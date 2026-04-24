@@ -2,7 +2,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "http://103.171.45.210:8000/api/$1"
+      "dest": "http://103.171.45.210:8090/api/$1"
     },
     {
       "handle": "filesystem"
