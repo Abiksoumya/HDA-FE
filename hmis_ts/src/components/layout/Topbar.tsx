@@ -31,9 +31,16 @@ export default function Topbar() {
     }
   };
 
-  const initials = user?.login_user_full_name
-    ? user.login_user_full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
-    : 'U';
+  // console.log('User info in Topbar:', user); // Debugging line to check user data
+
+const userName = (user as any)?.UserName ?? (user as any)?.UserDepartment?.[0]?.UserName ?? 'User';
+
+const initials = userName
+  ? userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+  : 'U';
+const companyName = (user as any)?.UserDepartment?.[0]?.CompanyName ?? ''; // ← add this
+const CompanyGroupName
+ = (user as any)?.UserDepartment?.[0]?.CompanyGroupName ?? ''; // ← add this
 
   return (
     <>
@@ -52,7 +59,7 @@ export default function Topbar() {
           <div className="flex items-center gap-2">
             <img src="/logo_hda_1.png" alt="HDA" className="h-7 w-auto" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             <span className="text-sm font-semibold text-slate-700 hidden sm:block">
-              Haldia Development Authority
+            {CompanyGroupName} ( {companyName })
             </span>
           </div>
         </div>
@@ -73,7 +80,7 @@ export default function Topbar() {
                   {initials}
                 </div>
                 <span className="text-sm text-slate-700 hidden sm:block max-w-[120px] truncate">
-                  {user?.login_user_full_name ?? 'User'}
+{userName}
                 </span>
               </button>
             </DropdownMenu.Trigger>
@@ -90,16 +97,17 @@ export default function Topbar() {
                 {/* User info */}
                 <div className="px-3 py-2 border-b border-slate-100 mb-1">
                   <p className="text-sm font-medium text-slate-800 truncate">
-                    {user?.login_user_full_name ?? 'User'}
+  {userName}
                   </p>
                   <p className="text-xs text-slate-400 truncate">{String(user?.email ?? '')}</p>
                 </div>
 
                 <DropdownMenu.Item
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 rounded-lg cursor-pointer hover:bg-slate-50 hover:text-slate-800 outline-none transition-colors"
-                >
-                  <User size={14} /> Profile
-                </DropdownMenu.Item>
+  className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 rounded-lg cursor-pointer hover:bg-slate-50 hover:text-slate-800 outline-none transition-colors"
+  onClick={() => navigate('/profile')}
+>
+  <User size={14} /> Profile
+</DropdownMenu.Item>
                 <DropdownMenu.Item
                   className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 rounded-lg cursor-pointer hover:bg-slate-50 hover:text-slate-800 outline-none transition-colors"
                 >

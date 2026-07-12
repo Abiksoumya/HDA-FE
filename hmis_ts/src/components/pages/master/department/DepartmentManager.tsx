@@ -54,7 +54,7 @@ export default function DepartmentManager() {
 
       {/* Table */}
       <div className="mt-4">
-        <PageCard title="Department List">
+        <PageCard title="Department List" showBackButton={false}>
           <DepartmentSearch
             key={tableKey}
             onSelect={() => {}}

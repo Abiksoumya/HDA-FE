@@ -75,7 +75,7 @@ const handleSave = async (payload: CompanyPayload) => {
 
       {/* Table always below */}
       <div className="mt-4">
-        <PageCard title="Company List">
+        <PageCard title="Company List"showBackButton={false}>
           <CompanySearch
               key={tableKey}
 

@@ -32,6 +32,8 @@ export interface UiState {
   sidebarOpen: boolean;
   activeItem: string;
   toasts: Toast[];
+  menuRefreshKey: number;
+
 }
 
 export interface Toast {
@@ -69,6 +71,7 @@ export interface RawMenuItem {
   menu_icon?: string;
   menu_url?: string;
   menu_group_code: number;
+  MenuRoutingPath?: string;
 }
 
 // ── API generic wrapper ───────────────────────────────────
@@ -96,7 +99,9 @@ export interface Company {
   HierarchyPath?: string;
   ADIMN_CMPN_LAYER_SDESC?: string;
   ADIMN_CMPN_LAYER_SDSPFLG?: string;
-    ADMIN_COMPANY_INACTIVE?: boolean;
+  ADMIN_COMPANY_INACTIVE?: boolean;
+  CompanyLayer?: string;  // ← add
+  LayerID?: number;       // ← add
 
 }
 
@@ -191,6 +196,8 @@ export interface DeptMappingItem {
   IsSelected?: boolean | number;
   ADMIN_CMPNY_DEPRT_CTRL_NFLG?: boolean | number;
   IsActive?: boolean | number;
+  IsLoginApplicable?: boolean;  // ← add
+  IsUserActive?: boolean;       // ← add
 }
 
 // export interface CompanyDeptFormValues {
@@ -317,5 +324,213 @@ export interface CompanyDeptFormValues {
     ADMIN_CMPNY_DEPRT_CTRL_NFLG: number;
     IsActive: number;
   }[];
+}
+
+export interface Group {
+  RecordNo?: number;
+  GroupID: number;
+  CompanyID: number;
+  GroupCompanyID: number;
+  GroupName: string;
+  CompanyName?: string;
+  GroupCompanyName?: string;
+  DefaultFlag?: string;
+  DefaultFlagDisplay?: string;
+  InActive?: boolean;
+  InActiveDisplay?: string;
+  [key: string]: unknown;
+}
+
+export interface GroupFormValues {
+  p_GroupID: number;
+  p_CompanyID: number;
+  p_GroupCompanyID: number;
+  p_Description: string;
+  p_DefaultFlag: string;
+  p_inactive: boolean;
+}
+
+export interface UserDepartment {
+  UserDepartmentID: number;
+  CompanyID: number;
+  CompanyName: string;
+  CompanyGroupID: number;
+  CompanyGroupName: string;
+  CompanyLayer?: string;  // ← add
+  LayerID?: number;       // ← add
+  GroupID: number;
+  GroupName: string;
+  DepartmentID: number;
+  DepartmentName: string;
+  UserID: number;
+  UserLoginID: string;
+  UserName: string;
+  IsLoginApplicable: boolean;
+  IsUserActive: boolean;
+  InActive: boolean;
+  [key: string]: unknown;
+}
+
+export interface UserFormValues {
+  p_UserID: number;
+  p_CompanyID: number;
+  p_CompanyGroupID: number;
+  p_GroupID: number;
+  p_UserLoginID: string;
+  p_Password: string;
+  p_ConfirmPassword: string;
+  p_UserName: string;
+  p_inactive: boolean;
+
+  departments: {
+    ADMIN_DEPRT_NID: number;
+    IsSelected: number;
+    IsLoginApplicable: number;
+    IsUserActive: number;
+  }[];
+}
+
+
+
+export interface UserDeptChange {
+  DepartmentID: number;
+  IsLoginApplicable: boolean;
+  IsUserActive: boolean;
+  InActive: boolean;
+  IsSelected: number;
+  wasOriginallyMapped: boolean;
+}
+
+export interface AccountType {
+  RecordNo: number;
+  AccountType: string;
+  AccountSign: string;
+}
+
+export interface AccountTemplate {
+  RecordNo?: number;
+  AccountID: number;
+  AccountParentID: number;
+  Code: string;
+  Description: string;
+  AccountType: string;
+  GroupFlag: string;
+  LevelNo: number;
+  IsLastNode: string;
+  BSPLItem: string;
+  IsCostCenterApp: boolean;
+  [key: string]: unknown;
+}
+
+export interface GroupAccountFormValues {
+  AccountID: number;
+  AccountParentID: number;
+  Code: string;
+  Description: string;
+  AccountType: string;
+  IsSubLedger: boolean;
+  IsCostCentre: boolean;
+    BankAccountNo: string; // ← add
+
+}
+
+export interface BankFormValues {
+  BankCode: string;
+  BankName: string;
+}
+
+export interface BankBranchFormValues {
+  BranchCode: string;
+  BranchName: string;
+  IFSCCode: string;
+  MICRCode: string;
+  Address: string;
+  PhoneNo: string;
+  EmailID: string;
+}
+
+export interface BankAccountFormValues {
+  AccountNo: string;
+  AccountName: string;
+  AccountType: string;
+  IFSCCode: string;
+  OpeningBalance: number;
+}
+
+export interface LookupItem {
+  KeyName: string;
+  LookupCode: string;
+  LookupName: string;
+}
+
+export interface SubLedgerContact {
+  SubLedgerContactID: number;
+  RecordState: number;
+  ContactPerson: string;
+  Designation: string;
+  ContactNumber: string;
+  ContactEmail: string;
+  IsPrimary: boolean;
+}
+
+export interface SubLedgerBank {
+  SubLedgerBankID: number;
+  RecordState: number;
+  BankID: number;
+  BranchID: number;
+  BankAccountNo: string;
+  BankAccountName: string;
+  IsActive: boolean;
+}
+
+export interface SubLedgerClient {
+  SubLedgerClientID: number;
+  RecordState: number;
+  OrganizationName: string;
+  JobTypeLookup: string;
+  AgreementDurationMonths: number;
+  AgreementValue: number;
+}
+
+export interface SubLedgerDocument {
+  SubLedgerDocumentID: number;
+  RecordState: number;
+  DocumentTypeLookup: string;
+  DocumentNo: string;
+}
+
+export interface SubLedgerBusiness {
+  SubLedgerBusinessID: number;
+  RecordState: number;
+  AccountID: number;
+  NoOfEmployee: number;
+  AnnualTurnover: number;
+  AuditorName: string;
+  BusinessTypeLookup: string;
+  NatureOfBizLookup: string;
+  LicenseNumber: string;
+}
+
+export interface SubLedgerFormData {
+  SubLedgerID: number;
+  CompanyID: number;
+  CompanyGroupID: number;
+  SubLedgerTypeID: number;
+  SubLedgerCode: string;
+  LegalName: string;
+  EntityLookup: string;
+  TDSNatureLookup: string;
+  EstablishmentLookup: string;
+  DateOfIncorporation: string;
+  StateLookup: string;
+  CINNumber: string;
+  RegOfficeAddress: string;
+  BizOfficeAddress: string;
+  Remarks: string;
+  Contacts: SubLedgerContact[];
+  Banks: SubLedgerBank[];
+  Clients: SubLedgerClient[];
+  Documents: SubLedgerDocument[];
+  Business: SubLedgerBusiness;
 }
 

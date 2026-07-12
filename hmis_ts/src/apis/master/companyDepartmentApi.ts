@@ -34,12 +34,14 @@ export const saveGroupCompany = (data: CompanyDeptFormValues) =>
 
 export const getCompanyDepartmentMapping = (
   companyId: number,
+  ShowActiveOnly = 0,
   pageNo = 0,
   pageSize = 0,
 ) =>
   axiosClient
     .get('/api/company-department/mapping', {
-      params: { CompanyID: companyId, PageNo: pageNo, PageSize: pageSize },
+      params: { CompanyID: companyId,        ShowActiveOnly: ShowActiveOnly, // ← add
+ PageNo: pageNo, PageSize: pageSize },
     })
     .then((r) => r.data);
 

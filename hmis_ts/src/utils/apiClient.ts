@@ -14,7 +14,7 @@ function getTokenExpiryInfo(decoded: JwtPayload): number {
   const diff = exp - now;
   if (import.meta.env.DEV) {
     if (diff > 0) {
-      console.log(`[Token] Expires in ${Math.floor(diff / 60)} minute(s).`);
+      // console.log(`[Token] Expires in ${Math.floor(diff / 60)} minute(s).`);
     } else {
       console.warn(`[Token] Expired ${Math.abs(Math.floor(diff / 60))} minute(s) ago.`);
     }

@@ -79,7 +79,8 @@ export default function DepartmentRow({
       </td>
 
       {/* Map toggle */}
-     <td className="px-4 py-3 text-center">
+     {/* Map toggle — always enabled */}
+<td className="px-4 py-3 text-center">
   <Controller
     name={`departments.${index}.IsSelected`}
     control={control}
@@ -91,7 +92,7 @@ export default function DepartmentRow({
           field.onChange(val);
           onToggleChange(department, 'IsSelected', val);
         }}
-        disabled={department.IsMapped === true} // ← disable if already mapped
+        disabled={false} // ← always enabled
       />
     )}
   />

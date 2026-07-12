@@ -4,6 +4,8 @@ import type { UiState, Toast } from '@/types';
 const initialState: UiState = {
   sidebarOpen: true,
   activeItem: 'dashboard',
+menuRefreshKey: 0,
+
   toasts: [],
 };
 
@@ -26,9 +28,12 @@ const uiSlice = createSlice({
     removeToast(state, action: PayloadAction<string>) {
       state.toasts = state.toasts.filter((t) => t.id !== action.payload);
     },
+    refreshMenus: (state) => {
+  state.menuRefreshKey += 1;
+},
   },
 });
 
-export const { toggleSidebar, setSidebarOpen, setActiveItem, addToast, removeToast } =
+export const { toggleSidebar, setSidebarOpen, setActiveItem, addToast, removeToast, refreshMenus } =
   uiSlice.actions;
 export default uiSlice.reducer;

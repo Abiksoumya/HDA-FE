@@ -163,7 +163,7 @@ export default function CompanyForm({ company, onSave }: Props) {
     cn('form-input', errors[name] && 'border-red-400 focus:ring-red-400/40', extra);
 
   const onSubmit = (data: CompanyFormValues) => {
-  console.log('Form data:', data); // ← check p_ADMIN_COMPANY_NGRPID value
+  // console.log('Form data:', data); // ← check p_ADMIN_COMPANY_NGRPID value
 
   const payload = {
     CompanyID: data.p_ADMIN_COMPANY_NID ?? 0,
@@ -187,7 +187,7 @@ export default function CompanyForm({ company, onSave }: Props) {
     InActive: data.p_inactive ?? false,
 
   };
-      console.log('Payload:', payload); // ← check final payload
+      // console.log('Payload:', payload); // ← check final payload
 
   onSave(payload);
 };

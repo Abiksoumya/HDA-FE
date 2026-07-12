@@ -10,6 +10,8 @@ import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { setActiveItem } from '@/store/slices/uiSlice';
 import { cn } from '@/utils/cn';
 import type { MenuItem } from '@/types';
+// import { getUserDetails } from '@/apis/common/commonApi'; // ← add this
+import { axiosClient } from '@/utils/apiClient';
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   Home: <Home size={15} />,
@@ -28,6 +30,7 @@ function MenuNode({ item, level = 0 }: { item: MenuItem; level?: number }) {
   const hasChildren = (item.children?.length ?? 0) > 0;
   const isActive = String(activeItem) === String(item.id);
   const [open, setOpen] = useState(false);
+
 
   // Auto-expand parent if a child matches the current path
   useEffect(() => {
@@ -105,17 +108,40 @@ function MenuNode({ item, level = 0 }: { item: MenuItem; level?: number }) {
 
 export default function Sidebar() {
   const sidebarOpen = useAppSelector((s) => s.ui.sidebarOpen);
+  const token = useAppSelector((s) => s.auth.token); // ← add
+
   const [menuData, setMenuData] = useState<MenuItem[]>([]);
+  const menuRefreshKey = useAppSelector((s) => s.ui.menuRefreshKey);
+
 
   useEffect(() => {
-    getMenus(1, 2, 1003, 13, '0')
-      .then((data) => {
-        const transformed = transformMenuData(data);
-        console.log('MENU PATHS:', transformed); // 👈 add this
-        setMenuData(transformed);
-      })
-      .catch(() => setMenuData([]));
-  }, []);
+
+  if (!token) return;
+
+  // Get user details first then load menus
+  axiosClient.get('/api/user/get-user-details')
+    .then((res) => {
+  const data = res.data?.data;  // ← data is now parsed object directly
+  const dept = data?.UserDepartment?.[0];
+      
+      // console.log('User dept:', data);
+
+      const userId = dept?.UserID ;
+      const groupId = dept?.GroupID;
+      const companyId = dept?.CompanyID;
+      const deptId = dept?.DepartmentID ;
+
+      return getMenus(companyId, groupId,userId,  deptId, '0');
+
+    })
+    .then((data) => {
+       
+
+      const transformed = transformMenuData(data?.data);
+      setMenuData(transformed);
+    })
+    .catch(() => setMenuData([]));
+}, [token,menuRefreshKey]);
 
   return (
     <aside

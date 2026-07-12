@@ -4,6 +4,7 @@ import { getAllCompanies } from '@/apis/master/companyApi';
 import type { Company } from '@/types';
 
 interface CompanyRecord {
+  CompanyLayer: string;
   RecordNo: number;
   CompanyID: number;
   Code: string;
@@ -152,7 +153,7 @@ style={{ paddingLeft: '2.25rem' }}
                 <th className="w-10">#</th>
                 <th>Name</th>
                 <th>Short Name</th>
-                <th>Type</th>
+                <th>LAYER</th>
                 <th>Address</th>
                 <th>Phone</th>
                 <th>Email</th>
@@ -195,11 +196,11 @@ style={{ paddingLeft: '2.25rem' }}
                     <td>
                       <span className="badge badge-blue font-mono text-[11px]">{r.Code}</span>
                     </td>
-                    <td>
-                      <span className={r.GroupFlag === 'Y' ? 'badge badge-green' : 'badge badge-slate'}>
-                        {r.GroupFlag === 'Y' ? 'Group' : 'Entity'}
-                      </span>
-                    </td>
+                   <td>
+  <span className="badge badge-slate text-[11px]">
+    {r.CompanyLayer ?? '—'}
+  </span>
+</td>
                     <td className="text-xs text-slate-500">{r.CompanyProfile?.Address || '—'}</td>
                     <td className="text-xs">{r.CompanyProfile?.Phone || '—'}</td>
                     <td className="text-xs text-slate-500">{r.CompanyProfile?.EMail || '—'}</td>

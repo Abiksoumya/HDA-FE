@@ -188,12 +188,13 @@ if (field === 'IsActive') newEntry.IsActive = value;
 useEffect(() => {
   setDdLoaded(false);
   getCompanyBranch()
-    .then((r) => {
-      const data = r?.data ?? [];
-      setBranchDD(data);
-    })
-    .catch(() => setBranchDD([]))
-    .finally(() => setDdLoaded(true));
+  .then((r) => {
+    const data = r?.data ?? [];
+    const filtered = data.filter((c: { IsLastLayer: boolean }) => c.IsLastLayer === true); // ← filter
+    setBranchDD(filtered);
+  })
+  .catch(() => setBranchDD([]))
+  .finally(() => setDdLoaded(true));
 }, []);
 
   // Load departments with mapping when branch changes
@@ -298,7 +299,7 @@ const loadDepartments = (p: number) => {
     Department: departmentsToSave,
   };
 
-  console.log('Payload:', JSON.stringify(payload, null, 2));
+  // console.log('Payload:', JSON.stringify(payload, null, 2));
   onSave(payload);
 };
 

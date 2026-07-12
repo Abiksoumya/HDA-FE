@@ -12,19 +12,22 @@ export const fetchDropdownOptions = (endpoint: string) =>
   apiClient.get(endpoint).then((r) => r.data);
 
 export const getMenus = (
-  s_user_id: number,
+    s_company_id: number,
   s_group_id: number,
-  s_branch_id: number,
+
+  s_user_id: number,
   s_dept_id: number,
   s_for_mobile: string,
 ) => {
   const params: Record<string, unknown> = {};
-  if (s_user_id != null) params.p_user_id = s_user_id;
+    if (s_company_id != null) params.p_company_id = s_company_id;
   if (s_group_id != null) params.p_group_id = s_group_id;
-  if (s_branch_id != null) params.p_branch_id = s_branch_id;
+
+  if (s_user_id != null) params.p_user_id = s_user_id;
   if (s_dept_id != null) params.p_dept_id = s_dept_id;
   if (s_for_mobile != null) params.p_for_mobile = s_for_mobile;
-  return axiosClient.get('api/user/user-wise-menu-list', { params }).then((r) => r.data);
+  return axiosClient.get('api/user/user-wise-menu-list', { params }).then((r) =>
+    r.data);
 };
 
 export const getHospitals = (): DD<HospitalOption> =>

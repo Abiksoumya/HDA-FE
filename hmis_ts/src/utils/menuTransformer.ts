@@ -1,46 +1,43 @@
-import type { MenuItem, RawMenuItem } from '@/types';
 
-// "Company Wise Department" → "/company-wise-department"
+
+
+
+
+
+import type { MenuItem } from '@/types';
+
+// "Company Wise Department" → "/company_wise_department"
 function labelToPath(label: string): string {
   return '/' + label
     .toLowerCase()
     .trim()
-    .replace(/\s+/g, '-')        // spaces → hyphens
-    .replace(/[^a-z0-9-]/g, ''); // remove special chars
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_&]/g, '');
 }
 
-interface MenuApiResponse {
-  data: RawMenuItem[];
+interface RawMenuNode {
+  MenuID: number;
+  ParentID: number;
+  Description: string;
+  GroupFlag: string;
+  Icon?: string;
+  ChildMenu?: RawMenuNode[];
 }
 
-export function transformMenuData(apiResponse: MenuApiResponse): MenuItem[] {
-  const map: Record<number, MenuItem> = {};
-  const roots: MenuItem[] = [];
+export function transformMenuData(apiResponse: any): MenuItem[] {
+  const menuTree: RawMenuNode[] = apiResponse?.Menu ?? [];
+  if (!menuTree.length) return [];
 
-  apiResponse.data.forEach((item) => {
-    map[item.menu_code] = {
-      id: String(item.menu_key_code),
-      label: item.menu_name,
-      icon: item.menu_icon ?? null,
-      path: item.menu_url
-        ? `/${item.menu_url}`
-        : labelToPath(item.menu_name), // ← use label if no url
-      children: [],
+  const buildNode = (node: RawMenuNode): MenuItem => {
+    const hasChildren = (node.ChildMenu?.length ?? 0) > 0;
+    return {
+      id: String(node.MenuID),
+      label: node.Description,
+      icon: node.Icon ?? null,
+      path: hasChildren ? '' : labelToPath(node.Description),
+      children: hasChildren ? node.ChildMenu!.map(buildNode) : [],
     };
-  });
+  };
 
-  apiResponse.data.forEach((item) => {
-    const node = map[item.menu_code];
-    if (item.menu_group_code === 0) {
-      roots.push(node);
-    } else {
-      const parent = map[item.menu_group_code];
-      if (parent) {
-        parent.children = parent.children ?? [];
-        parent.children.push(node);
-      }
-    }
-  });
-
-  return roots;
+  return menuTree.map(buildNode);
 }
