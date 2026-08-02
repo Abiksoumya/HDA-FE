@@ -170,7 +170,7 @@ import type { SubLedgerFormData } from '@/types';
 interface SubLedgerType { SubLedgerTypeID: number; SubLedgerType: string; }
 interface SubLedgerRow { SubLedgerID: number; }
 
-const EMPLOYEE_TYPE_ID = 4;
+const EMPLOYEE_TYPE_ID = 3;
 
 export default function SubLedgerManager() {
   const { toast } = useToast();

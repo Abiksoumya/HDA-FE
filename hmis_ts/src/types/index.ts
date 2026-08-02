@@ -33,7 +33,7 @@ export interface UiState {
   activeItem: string;
   toasts: Toast[];
   menuRefreshKey: number;
-
+  pageButtons: Record<string, string[]>;
 }
 
 export interface Toast {

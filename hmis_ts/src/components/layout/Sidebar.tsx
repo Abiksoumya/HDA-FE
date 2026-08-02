@@ -5,9 +5,9 @@ import {
   BarChart2, Package, ShoppingCart,
 } from 'lucide-react';
 import { getMenus } from '@/apis/common/commonApi';
-import { transformMenuData } from '@/utils/menuTransformer';
+import { transformMenuData, buildButtonMap } from '@/utils/menuTransformer';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
-import { setActiveItem } from '@/store/slices/uiSlice';
+import { setActiveItem, setPageButtons } from '@/store/slices/uiSlice';
 import { cn } from '@/utils/cn';
 import type { MenuItem } from '@/types';
 // import { getUserDetails } from '@/apis/common/commonApi'; // ← add this
@@ -107,41 +107,68 @@ function MenuNode({ item, level = 0 }: { item: MenuItem; level?: number }) {
 }
 
 export default function Sidebar() {
+  const dispatch = useAppDispatch();
   const sidebarOpen = useAppSelector((s) => s.ui.sidebarOpen);
-  const token = useAppSelector((s) => s.auth.token); // ← add
+  const token = useAppSelector((s) => s.auth.token);
 
   const [menuData, setMenuData] = useState<MenuItem[]>([]);
   const menuRefreshKey = useAppSelector((s) => s.ui.menuRefreshKey);
 
 
-  useEffect(() => {
+//   useEffect(() => {
 
+//   if (!token) return;
+
+//   // Get user details first then load menus
+//   axiosClient.get('/api/user/get-user-details')
+//     .then((res) => {
+//   const data = res.data?.data;  // ← data is now parsed object directly
+//   const dept = data?.UserDepartment?.[0];
+      
+//       // console.log('User dept:', data);
+
+//       const userId = dept?.UserID ;
+//       const groupId = dept?.GroupID;
+//       const companyId = dept?.CompanyID;
+//       const deptId = dept?.DepartmentID ;
+
+//       return getMenus(companyId, groupId,userId,  deptId, '0');
+
+//     })
+//     .then((data) => {
+//       const transformed = transformMenuData(data?.data);
+//       const buttonMap = buildButtonMap(data?.data);
+//       setMenuData(transformed);
+//       dispatch(setPageButtons(buttonMap));
+//     })
+//     .catch(() => setMenuData([]));
+  // }, [token,menuRefreshKey]);
+  // Add user to selectors:
+const user = useAppSelector((s) => s.auth.user);
+
+// Replace the entire useEffect:
+useEffect(() => {
   if (!token) return;
 
-  // Get user details first then load menus
-  axiosClient.get('/api/user/get-user-details')
-    .then((res) => {
-  const data = res.data?.data;  // ← data is now parsed object directly
-  const dept = data?.UserDepartment?.[0];
-      
-      // console.log('User dept:', data);
+  // ← read directly from Redux user (updated by dispatch(setUser()) on profile switch)
+  const dept = (user as any)?.UserDepartment?.[0];
+  const userId = dept?.UserID;
+  const groupId = dept?.GroupID;
+  const companyId = dept?.CompanyID;
+  const deptId = dept?.DepartmentID;
 
-      const userId = dept?.UserID ;
-      const groupId = dept?.GroupID;
-      const companyId = dept?.CompanyID;
-      const deptId = dept?.DepartmentID ;
+  if (!userId || !companyId) return;
 
-      return getMenus(companyId, groupId,userId,  deptId, '0');
-
-    })
+  getMenus(companyId, groupId, userId, deptId, '0')
     .then((data) => {
-       
-
       const transformed = transformMenuData(data?.data);
+      const buttonMap = buildButtonMap(data?.data);
       setMenuData(transformed);
+      dispatch(setPageButtons(buttonMap));
     })
     .catch(() => setMenuData([]));
-}, [token,menuRefreshKey]);
+
+}, [token, user, menuRefreshKey]); // ← add user as dependency
 
   return (
     <aside

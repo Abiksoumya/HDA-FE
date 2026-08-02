@@ -21,6 +21,7 @@ interface RawMenuNode {
   Description: string;
   GroupFlag: string;
   Icon?: string;
+  MenuButtons?: { ButtonName: string }[];
   ChildMenu?: RawMenuNode[];
 }
 
@@ -40,4 +41,23 @@ export function transformMenuData(apiResponse: any): MenuItem[] {
   };
 
   return menuTree.map(buildNode);
+}
+
+// Returns a map of route path → unique button names for that page
+export function buildButtonMap(apiResponse: any): Record<string, string[]> {
+  const menuTree: RawMenuNode[] = apiResponse?.Menu ?? [];
+  const map: Record<string, string[]> = {};
+
+  function traverse(node: RawMenuNode) {
+    const hasChildren = (node.ChildMenu?.length ?? 0) > 0;
+    if (!hasChildren) {
+      const path = labelToPath(node.Description);
+      const buttons = (node.MenuButtons ?? []).map((b) => b.ButtonName);
+      map[path] = [...new Set(buttons)];
+    }
+    node.ChildMenu?.forEach(traverse);
+  }
+
+  menuTree.forEach(traverse);
+  return map;
 }

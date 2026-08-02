@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as Yup from 'yup';
-import { Search, X, ChevronLeft, ChevronRight, Loader2, Save } from 'lucide-react';
+import { Search, X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import DynamicFooter from '@/components/shared/DynamicFooter';
 import { getBanks, getBankBranches, createBankBranch } from '@/apis/finance/financeApi';
 import { useToast } from '@/hooks/useToast';
 import FormField from '@/components/shared/FormField';
-import { Button } from '@/components/ui/Button';
 import { cn } from '@/utils/cn';
 
 interface BranchFormValues {
@@ -134,7 +134,7 @@ export default function BranchTab() {
   return (
     <div className="space-y-6">
       {/* Form */}
-      <form onSubmit={handleSubmit(onSubmit)} noValidate>
+      <form id="branch-form" onSubmit={handleSubmit(onSubmit)} noValidate>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <FormField label="Bank" required error={errors.BankID?.message}>
             <select
@@ -197,17 +197,14 @@ export default function BranchTab() {
               {watch('InActive') ? 'Inactive' : 'Active'}
             </span>
           </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" type="button" onClick={() => reset({
+          <DynamicFooter
+            formId="branch-form"
+            saving={saving}
+            onClose={() => reset({
               BranchID: 0, BankID: 0, BranchCode: '', BranchName: '',
               IFSCCode: '', MICRCode: '', Address: '', PhoneNo: '', EmailID: '', InActive: false,
-            })}>
-              <X size={13} /> Cancel
-            </Button>
-            <Button type="submit" disabled={saving}>
-              <Save size={13} /> {saving ? 'Saving…' : 'Submit'}
-            </Button>
-          </div>
+            })}
+          />
         </div>
       </form>
 

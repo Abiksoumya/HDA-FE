@@ -1,12 +1,13 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { UiState, Toast } from '@/types';
 
+
 const initialState: UiState = {
   sidebarOpen: true,
   activeItem: 'dashboard',
-menuRefreshKey: 0,
-
+  menuRefreshKey: 0,
   toasts: [],
+  pageButtons: {},
 };
 
 const uiSlice = createSlice({
@@ -29,11 +30,14 @@ const uiSlice = createSlice({
       state.toasts = state.toasts.filter((t) => t.id !== action.payload);
     },
     refreshMenus: (state) => {
-  state.menuRefreshKey += 1;
-},
+      state.menuRefreshKey += 1;
+    },
+    setPageButtons(state, action: PayloadAction<Record<string, string[]>>) {
+      state.pageButtons = action.payload;
+    },
   },
 });
 
-export const { toggleSidebar, setSidebarOpen, setActiveItem, addToast, removeToast, refreshMenus } =
+export const { toggleSidebar, setSidebarOpen, setActiveItem, addToast, removeToast, refreshMenus, setPageButtons } =
   uiSlice.actions;
 export default uiSlice.reducer;

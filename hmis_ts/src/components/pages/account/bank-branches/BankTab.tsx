@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as Yup from 'yup';
-import { Search, X, ChevronLeft, ChevronRight, Loader2, Save } from 'lucide-react';
+import { Search, X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import DynamicFooter from '@/components/shared/DynamicFooter';
 import { getBanks, createBank } from '@/apis/finance/financeApi';
 import { useToast } from '@/hooks/useToast';
 import FormField from '@/components/shared/FormField';
-import { Button } from '@/components/ui/Button';
 import { cn } from '@/utils/cn';
 
 interface BankFormValues {
@@ -102,7 +102,7 @@ defaultValues: { BankID: 0, BankName: '', InActive: false },
   return (
     <div className="space-y-6">
       {/* Form */}
-      <form onSubmit={handleSubmit(onSubmit)} noValidate>
+      <form id="bank-form" onSubmit={handleSubmit(onSubmit)} noValidate>
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4">
   <div className="md:col-span-6">
     <FormField label="Bank Name" required error={errors.BankName?.message}>
@@ -135,15 +135,13 @@ defaultValues: { BankID: 0, BankName: '', InActive: false },
     </span>
   </div>
 </div>
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" type="button" onClick={() => reset({ BankID: 0,  BankName: '', InActive: false })}>
-            <X size={13} /> Cancel
-          </Button>
-          <Button type="submit" disabled={saving}>
-            <Save size={13} /> {saving ? 'Saving…' : 'Submit'}
-          </Button>
-        </div>
       </form>
+      <DynamicFooter
+        formId="bank-form"
+        saving={saving}
+        onClose={() => reset({ BankID: 0, BankName: '', InActive: false })}
+        className="mt-4"
+      />
 
       <hr className="border-slate-100" />
 

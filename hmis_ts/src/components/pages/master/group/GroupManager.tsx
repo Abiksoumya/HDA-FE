@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { X, Save } from 'lucide-react';
 import { saveGroup } from '@/apis/master/groupApi';
 import { useToast } from '@/hooks/useToast';
 import PageCard from '@/components/shared/PageCard';
-import { Button } from '@/components/ui/Button';
+import DynamicFooter from '@/components/shared/DynamicFooter';
 import GroupForm from './GroupForm';
 import GroupSearch from './GroupSearch';
 import type { Group } from '@/types';
@@ -32,22 +31,23 @@ export default function GroupManager() {
     }
   };
 
+  const handleClose = () => {
+    setEditing(null);
+    setFormKey((k) => k + 1);
+  };
+
   return (
     <>
-      {/* Form */}
       <PageCard title={editing ? 'Edit Group' : 'Add New Group'}>
         <GroupForm key={formKey} formdata={editing} onSave={handleSave} />
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="secondary" onClick={() => { setEditing(null); setFormKey((k) => k + 1); }}>
-            <X size={13} /> Cancel
-          </Button>
-          <Button type="submit" form="group-form" disabled={saving}>
-            <Save size={13} /> {saving ? 'Saving…' : 'Submit'}
-          </Button>
-        </div>
+        <DynamicFooter
+          formId="group-form"
+          saving={saving}
+          onClose={handleClose}
+          className="mt-4"
+        />
       </PageCard>
 
-      {/* Table */}
       <div className="mt-4">
         <PageCard title="Group List" showBackButton={false}>
           <GroupSearch

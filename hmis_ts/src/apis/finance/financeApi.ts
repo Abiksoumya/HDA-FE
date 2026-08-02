@@ -84,3 +84,13 @@ export const getSubLedgerEmployeeById = (companyId: number, companyGroupId: numb
       params: { CompanyID: companyId, CompanyGroupID: companyGroupId, SubLedgerID: subLedgerId },
     })
     .then((r) => r.data);
+
+    export const getAccountTemplateMaps = (templateId = 0, showActiveOnly = 1, pageNo = 1, pageSize = 20) =>
+  axiosClient
+    .get('/api/finance/account-template-maps', {
+      params: { TemplateID: templateId, ShowActiveOnly: showActiveOnly, PageNo: pageNo, PageSize: pageSize },
+    })
+    .then((r) => r.data);
+
+export const createAccountTemplateMap = (data: unknown) =>
+  axiosClient.post('/api/finance/account-template-maps', data).then((r) => r.data);

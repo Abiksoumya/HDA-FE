@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Save, X, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { getSubLedgerTypes, getSubLedgerAccountTemplate, saveSubLedgerAccountTemplate } from '@/apis/finance/financeApi';
 import { useToast } from '@/hooks/useToast';
 import PageCard from '@/components/shared/PageCard';
-import { Button } from '@/components/ui/Button';
+import DynamicFooter from '@/components/shared/DynamicFooter';
 import { cn } from '@/utils/cn';
 
 interface SubLedgerType {
@@ -225,23 +225,17 @@ export default function SubLedgerTypeManager() {
         )}
       </div>
 
-      {/* Footer buttons */}
       {selectedType !== 0 && !accountsLoading && (
-        <div className="flex justify-end gap-2 mt-4">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setSelectedType(0);
-              setAccounts([]);
-              setCheckedMap(new Map());
-            }}
-          >
-            <X size={13} /> Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={saving}>
-            <Save size={13} /> {saving ? 'Saving…' : 'Submit'}
-          </Button>
-        </div>
+        <DynamicFooter
+          saving={saving}
+          onSubmit={handleSubmit}
+          onClose={() => {
+            setSelectedType(0);
+            setAccounts([]);
+            setCheckedMap(new Map());
+          }}
+          className="mt-4"
+        />
       )}
     </PageCard>
   );

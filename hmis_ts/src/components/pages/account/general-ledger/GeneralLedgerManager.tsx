@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { X, Save } from 'lucide-react';
 import { saveAccountTemplate } from '@/apis/finance/financeApi';
 import { useToast } from '@/hooks/useToast';
 import PageCard from '@/components/shared/PageCard';
-import { Button } from '@/components/ui/Button';
+import DynamicFooter from '@/components/shared/DynamicFooter';
 import GeneralLedgerForm from './GeneralLedgerForm';
 import GeneralLedgerSearch from './GeneralLedgerSearch';
 import type { AccountTemplate } from '@/types';
@@ -31,18 +30,21 @@ export default function GeneralLedgerManager() {
     }
   };
 
+  const handleClose = () => {
+    setEditing(null);
+    setFormKey((k) => k + 1);
+  };
+
   return (
     <>
       <PageCard title={editing ? 'Edit General Ledger' : 'Add New General Ledger'}>
         <GeneralLedgerForm key={formKey} formdata={editing} onSave={handleSave} />
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="secondary" onClick={() => { setEditing(null); setFormKey((k) => k + 1); }}>
-            <X size={13} /> Cancel
-          </Button>
-          <Button type="submit" form="general-ledger-form" disabled={saving}>
-            <Save size={13} /> {saving ? 'Saving…' : 'Submit'}
-          </Button>
-        </div>
+        <DynamicFooter
+          formId="general-ledger-form"
+          saving={saving}
+          onClose={handleClose}
+          className="mt-4"
+        />
       </PageCard>
 
       <div className="mt-4">

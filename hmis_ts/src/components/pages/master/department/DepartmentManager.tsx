@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { X, Save } from 'lucide-react';
 import { saveDepartment } from '@/apis/master/departmentApi';
 import { useToast } from '@/hooks/useToast';
 import PageCard from '@/components/shared/PageCard';
-import { Button } from '@/components/ui/Button';
+import DynamicFooter from '@/components/shared/DynamicFooter';
 import type { Department } from '@/types';
 import DepartmentForm from './DepartmentForm';
 import DepartmentSearch from './DepartmentSearch';
@@ -32,27 +31,23 @@ export default function DepartmentManager() {
     }
   };
 
+  const handleClose = () => {
+    setEditing(null);
+    setFormKey((k) => k + 1);
+  };
+
   return (
     <>
-      {/* Form */}
-      <PageCard
-        title={editing ? 'Edit Department' : 'Add New Department'}
-      >
+      <PageCard title={editing ? 'Edit Department' : 'Add New Department'}>
         <DepartmentForm key={formKey} formdata={editing} onSave={handleSave} />
-        <div className="flex justify-end gap-2 mt-4">
-          <Button
-            variant="secondary"
-            onClick={() => { setEditing(null); setFormKey((k) => k + 1); }}
-          >
-            <X size={13} /> Cancel
-          </Button>
-          <Button type="submit" form="department-form" disabled={saving}>
-            <Save size={13} /> {saving ? 'Saving…' : 'Submit'}
-          </Button>
-        </div>
+        <DynamicFooter
+          formId="department-form"
+          saving={saving}
+          onClose={handleClose}
+          className="mt-4"
+        />
       </PageCard>
 
-      {/* Table */}
       <div className="mt-4">
         <PageCard title="Department List" showBackButton={false}>
           <DepartmentSearch

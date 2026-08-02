@@ -13,6 +13,7 @@ import BankBranchManager from './components/pages/account/bank-branches/BankBran
 import SubLedgerTypeManager from './components/pages/account/sub-ledger-type/SubLedgerTypeManager';
 import SubLedgerManager from './components/pages/account/sub-ledger/SubLedgerManager';
 import ProfilePage from './components/pages/profile/ProfilePage';
+import AccountTemplateManager from './components/pages/account/account-template/AccountTemplateManager';
 
 const Login = lazy(() => import('@/components/pages/Login'));
 const Dashboard = lazy(() => import('@/components/pages/Dashboard'));
@@ -66,7 +67,8 @@ export default function App() {
             <Route path="bank_&_branches" element={<BankBranchManager />} />
             <Route path="gl_wise_sub_ledger" element={<SubLedgerTypeManager />} />
             <Route path="sub_ledger" element={<SubLedgerManager />} />
-<Route path="profile" element={<ProfilePage />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="account_template" element={<AccountTemplateManager />} />
 
           </Route>
 

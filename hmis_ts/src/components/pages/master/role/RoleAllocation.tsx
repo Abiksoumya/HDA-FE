@@ -13,6 +13,7 @@ import { getAllGroups } from '@/apis/master/groupApi';
 import { getAllUsers } from '@/apis/master/userApi';
 import { useToast } from '@/hooks/useToast';
 import { useAppSelector } from '@/hooks/redux';
+import { usePageButtons } from '@/hooks/usePageButtons';
 
 // ── Types ──────────────────────────────────────────────────
 interface MenuRow {
@@ -399,6 +400,7 @@ function Step3({ menus, onChange }: {
 // ── Group Tab ──────────────────────────────────────────────
 function GroupTab() {
   const { toast } = useToast();
+  const pageButtons = usePageButtons();
   const [groups, setGroups] = useState<GroupOption[]>([]);
   const [selectedGroup, setSelectedGroup] = useState(0);
   const [menus, setMenus] = useState<MenuRow[]>([]);
@@ -662,9 +664,9 @@ function GroupTab() {
                 <Button onClick={handleNext} disabled={step === 1 && activeCount === 0}>
                   Next <ChevronRight size={14} />
                 </Button>
-              ) : (
+              ) : pageButtons.includes('Submit') && (
                 <Button variant="success" onClick={handleFinalSubmit} disabled={saving}>
-                  <Save size={13} /> {saving ? 'Saving…' : 'Final Submit'}
+                  <Save size={13} /> {saving ? 'Saving…' : 'Submit'}
                 </Button>
               )}
             </div>
@@ -686,6 +688,7 @@ function GroupTab() {
 // ── User Tab ───────────────────────────────────────────────
 function UserTab() {
   const { toast } = useToast();
+  const pageButtons = usePageButtons();
   const [groups, setGroups] = useState<GroupOption[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [selectedGroup, setSelectedGroup] = useState(0);
@@ -991,9 +994,11 @@ const handleSubmit = async () => {
             <Button variant="secondary" onClick={() => loadRoles(selectedGroup, selectedUser)}>
               <X size={13} /> Reset
             </Button>
-            <Button onClick={handleSubmit} disabled={saving}>
-              <Save size={13} /> {saving ? 'Saving…' : 'Submit'}
-            </Button>
+            {pageButtons.includes('Submit') && (
+              <Button onClick={handleSubmit} disabled={saving}>
+                <Save size={13} /> {saving ? 'Saving…' : 'Submit'}
+              </Button>
+            )}
           </div>
         </>
       ) : selectedUser !== 0 ? (

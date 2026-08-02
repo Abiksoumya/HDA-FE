@@ -111,55 +111,67 @@ export default function ProfilePage() {
     setDepartments(company?.Department ?? []);
   };
 
-  const handleSwitch = async () => {
-    if (!selectedYearId || !selectedCompanyId || !selectedDeptId) {
-      toast('Please select Financial Year, Branch and Department.', 'error');
-      return;
-    }
+const handleSwitch = async () => {
+  if (!selectedYearId || !selectedCompanyId || !selectedDeptId) {
+    toast('Please select Financial Year, Branch and Department.', 'error');
+    return;
+  }
 
-    setSwitching(true);
-    try {
-      // Step 1 — Save Profile Switch SP (wire later when SP arrives)
-await updateProfileSwitch({
-  UserID: userId,
-  CompanyID: currentProfile?.CompanyID ?? dept?.CompanyID ?? 0,         // ← current
-  CompanyGroupID: currentProfile?.CompanyGroupID ?? dept?.CompanyGroupID ?? 0, // ← current
-  FinancialYearID: currentProfile?.FinancialYearID ?? 0,                 // ← current
-  DepartmentID: currentProfile?.DepartmentID ?? dept?.DepartmentID ?? 0, // ← current
-  SwitchToFinancialYearID: selectedYearId,   // ← new selection
-  SwitchToBranchID: selectedCompanyId,       // ← new selection
-  SwitchToDepartmentID: selectedDeptId,      // ← new selection
-});
-      // Step 2 — Re-fetch updated user details
-        const userRes = await axiosClient.get('/api/user/get-user-details');
+  setSwitching(true);
+  try {
+    // Step 1 — Save Profile Switch SP
+    await updateProfileSwitch({
+      UserID: userId,
+      CompanyID: currentProfile?.CompanyID ?? dept?.CompanyID ?? 0,
+      CompanyGroupID: currentProfile?.CompanyGroupID ?? dept?.CompanyGroupID ?? 0,
+      FinancialYearID: currentProfile?.FinancialYearID ?? 0,
+      DepartmentID: currentProfile?.DepartmentID ?? dept?.DepartmentID ?? 0,
+      SwitchToFinancialYearID: selectedYearId,
+      SwitchToBranchID: selectedCompanyId,
+      SwitchToDepartmentID: selectedDeptId,
+    });
 
+    // Step 2 — Manually update Redux user with new branch/dept/year
+    const selectedCompany = companies.find((c) => c.ID === selectedCompanyId);
+    const selectedDept = departments.find((d) => d.ID === selectedDeptId);
+    const selectedYear = financialYears.find((y) => y.FinancialYearID === selectedYearId);
 
-        const updatedUser = userRes.data?.data;
-                console.log('Updated user after switch:', updatedUser?.UserDepartment?.[0]); // ← add this
+    const updatedUser = {
+      ...(user as any),
+      UserDepartment: [
+        {
+          ...(dept ?? {}),
+          CompanyID: selectedCompanyId,
+          CompanyName: selectedCompany?.Description ?? dept?.CompanyName,
+          DepartmentID: selectedDeptId,
+          DepartmentName: selectedDept?.Description ?? dept?.DepartmentName,
+          FinancialYearID: selectedYearId,
+          YearShortName: selectedYear?.YearShortName ?? dept?.YearShortName,
+        },
+      ],
+    };
+    dispatch(setUser(updatedUser)); // ← updates topbar immediately
 
-      if (updatedUser) {
-        dispatch(setUser(updatedUser)); // ← update Redux user state
-      }
+    // Step 3 — Trigger Sidebar to re-fetch menus
+    dispatch(refreshMenus());
 
-     dispatch(refreshMenus()); // ← triggers Sidebar to re-fetch menus automatically
+    // Step 4 — Update current profile display
+    setCurrentProfile((prev) => prev ? {
+      ...prev,
+      CompanyID: selectedCompanyId,
+      DepartmentID: selectedDeptId,
+      FinancialYearID: selectedYearId,
+      FinancialYear: selectedYear?.YearShortName ?? '',
+    } : null);
 
-      toast('Profile switched successfully!', 'success');
+    toast('Profile switched successfully!', 'success');
 
-      // Step 4 — Update current profile display
-      setCurrentProfile((prev) => prev ? {
-        ...prev,
-        CompanyID: selectedCompanyId,
-        DepartmentID: selectedDeptId,
-        FinancialYearID: selectedYearId,
-        FinancialYear: financialYears.find((y) => y.FinancialYearID === selectedYearId)?.YearShortName ?? '',
-      } : null);
-
-    } catch {
-      toast('Failed to switch profile.', 'error');
-    } finally {
-      setSwitching(false);
-    }
-  };
+  } catch (err: unknown) {
+    toast(err instanceof Error ? err.message : 'Failed to switch profile.', 'error');
+  } finally {
+    setSwitching(false);
+  }
+};
 
   const onPasswordSubmit = async (data: PasswordFormValues) => {
     setSaving(true);
