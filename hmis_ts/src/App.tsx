@@ -14,6 +14,11 @@ import SubLedgerTypeManager from './components/pages/account/sub-ledger-type/Sub
 import SubLedgerManager from './components/pages/account/sub-ledger/SubLedgerManager';
 import ProfilePage from './components/pages/profile/ProfilePage';
 import AccountTemplateManager from './components/pages/account/account-template/AccountTemplateManager';
+import TemplateActivationManager from './components/pages/account/template-activation/TemplateActivationManager';
+import OpeningGLBalanceManager from './components/pages/account/opening-gl-balance/OpeningGLBalanceManager';
+import OpeningSLBalanceManager from './components/pages/account/opening-gl-balance/OpeningSLBalanceManager';
+import CashBankVoucherManager from './components/pages/account/voucher/CashBankVoucherManager';
+import CashBankVoucherPass from './components/pages/account/voucher/CashBankVoucherPass';
 
 const Login = lazy(() => import('@/components/pages/Login'));
 const Dashboard = lazy(() => import('@/components/pages/Dashboard'));
@@ -69,8 +74,14 @@ export default function App() {
             <Route path="sub_ledger" element={<SubLedgerManager />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="account_template" element={<AccountTemplateManager />} />
-
-          </Route>
+            <Route path="template_activation" element={<TemplateActivationManager />} />
+            <Route path="opening_gl_balance" element={<OpeningGLBalanceManager />} />
+<Route path="opening_sl_balance" element={<OpeningSLBalanceManager />} />
+           <Route path="cash_voucher/preparation" element={<CashBankVoucherManager key="CASH" voucherType="CASH" />} />
+            <Route path="bank_voucher/preparation" element={<CashBankVoucherManager key="BANK" voucherType="BANK" />} />
+            <Route path="cash_voucher/passing" element={<CashBankVoucherPass key="CASH-PASS" voucherType="CASH" />} />
+            <Route path="bank_voucher/passing" element={<CashBankVoucherPass key="BANK-PASS" voucherType="BANK" />} />
+          </Route> 
 
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />
