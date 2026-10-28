@@ -17,6 +17,7 @@ import DynamicFooter from '@/components/shared/DynamicFooter';
 import Modal from '@/components/panels/Modal';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/utils/cn';
+  import { VOUCHER_WORKFLOW } from '@/utils/Voucherworkflow';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -545,7 +546,7 @@ export default function CashBankVoucherManager({ voucherType }: Props) {
       RecordState: opened ? 2 : 1, // 1 = create, 2 = edit
       DocumentHeaderID: opened?.documentHeaderId ?? 0,
       DocumentType: voucherType,
-      WorkflowDocumentID: PREPARATION_WORKFLOW_ID[voucherType],
+      WorkflowDocumentID:VOUCHER_WORKFLOW[voucherType].preparation,
       BranchCompanyID: companyId,
       GroupCompanyID: companyGroupId,
       FinancialYearID: financialYearId,

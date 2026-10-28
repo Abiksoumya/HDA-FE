@@ -15,6 +15,7 @@ import FormField from '@/components/shared/FormField';
 import Modal from '@/components/panels/Modal';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/utils/cn';
+import { VOUCHER_WORKFLOW } from '@/utils/Voucherworkflow';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,6 +51,9 @@ interface VoucherRecord {
   Narration: string | null;
   ChequeNo?: string | null;
   ChequeDate?: string | null;
+  DocumentID?: number;     // workflow stage of this record (menu ID)
+  PrevVoucherID?: number;  // pass record → the prepared voucher it came from
+  NextVoucherID?: number;
   Posting: VoucherPosting[];
 }
 
@@ -87,12 +91,6 @@ const EMPTY_SEARCH: VoucherSearch = { keyName: '', keyValue: '' };
 
 const PAGE_SIZE = 10;
 const DOC_TYPE_ID: Record<VoucherType, number> = { CASH: 1, BANK: 2 };
-
-// Workflow stages (menu IDs)
-const WORKFLOW: Record<VoucherType, { prepared: number; passed: number }> = {
-  CASH: { prepared: 2050505, passed: 2050510 },
-  BANK: { prepared: 2051005, passed: 2051010 },
-};
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -134,6 +132,7 @@ export default function CashBankVoucherPass({ voucherType }: Props) {
   const buttons = usePageButtons();
   const canPass = buttons.includes('Approve') || buttons.includes('Submit');
   const canClose = buttons.includes('Close');
+  const canSearch = buttons.includes('Search');
 
   const user = useAppSelector((s) => s.auth.user);
   const dept = (user as any)?.UserDepartment?.[0];
@@ -143,7 +142,7 @@ export default function CashBankVoucherPass({ voucherType }: Props) {
 
   const isBank = voucherType === 'BANK';
   const title = isBank ? 'Bank Voucher' : 'Cash Voucher';
-  const workflow = WORKFLOW[voucherType];
+  const workflow = VOUCHER_WORKFLOW[voucherType];
 
   // Masters
   const [cashBankAccounts, setCashBankAccounts] = useState<CashBankAccount[]>([]);
@@ -151,7 +150,7 @@ export default function CashBankVoucherPass({ voucherType }: Props) {
   const [mastersLoading, setMastersLoading] = useState(true);
 
   // List
-  const [listKind, setListKind] = useState<ListKind>('PASSED');
+  const [listKind, setListKind] = useState<ListKind>('PENDING');
   const [searchDraft, setSearchDraft] = useState<VoucherSearch>(EMPTY_SEARCH);
   const [appliedSearch, setAppliedSearch] = useState<VoucherSearch>(EMPTY_SEARCH);
   const [vouchers, setVouchers] = useState<VoucherRecord[]>([]);
@@ -182,8 +181,8 @@ export default function CashBankVoucherPass({ voucherType }: Props) {
       .catch((err) => toast(getErrorMessage(err, 'Failed to load accounts.'), 'error'))
       .finally(() => setMastersLoading(false));
 
-    // Initial list: passed vouchers, no search
-    void loadVouchers('PASSED', EMPTY_SEARCH, 1);
+    // Initial list: prepared vouchers waiting to be passed
+    void loadVouchers('PENDING', EMPTY_SEARCH, 1);
   }, [companyId, companyGroupId, financialYearId, voucherType]);
 
   async function loadVouchers(kind: ListKind, search: VoucherSearch, page: number) {
@@ -194,15 +193,26 @@ export default function CashBankVoucherPass({ voucherType }: Props) {
         BranchCompanyID: companyId,
         GroupCompanyID: companyGroupId,
         FinancialYearID: financialYearId,
-        WorkflowDocumentID: kind === 'PASSED' ? workflow.passed : workflow.prepared,
+        WorkflowDocumentID: kind === 'PASSED' ? workflow.passing : workflow.preparation,
         KeyName: search.keyName,
         KeyValue: search.keyValue.trim(),
         PageNo: page,
         PageSize: PAGE_SIZE,
       });
+      
       const d = r?.data;
       if (d?.IsSuccess === false) throw new Error(d?.ErrorDescription || 'Failed to load vouchers.');
-      setVouchers(d?.Vouchers ?? []);
+                  const all: VoucherRecord[] = d?.Vouchers ?? [];
+      const num = (x: unknown) => Number(x ?? 0) || 0;
+      // Prepared = at preparation stage and not passed yet (NextVoucherID 0)
+      // Passed   = at passing stage and linked to a prepared voucher (PrevVoucherID > 0)
+      setVouchers(
+        all.filter((v) =>
+          kind === 'PENDING'
+            ? num(v.DocumentID) === workflow.preparation && num(v.NextVoucherID) === 0
+            : num(v.DocumentID) === workflow.passing && num(v.PrevVoucherID) > 0,
+        ),
+      );
       setPaging({ totalRecords: d?.TotalRecords ?? 0, pageCount: d?.PageCount ?? 0 });
       setPageNo(page);
       setListKind(kind);
@@ -256,19 +266,26 @@ export default function CashBankVoucherPass({ voucherType }: Props) {
     });
   };
 
-  // Search → vouchers waiting to be passed. No field selected = all of them.
+  // List search filters the list currently shown (prepared or passed).
+  // No field selected = all vouchers in that list.
   const handleSearch = () => {
     if (searchDraft.keyName && !searchDraft.keyValue.trim()) {
       toast(`Please enter the ${selectedKey?.label ?? 'search value'}.`, 'error');
       return;
     }
-    void loadVouchers('PENDING', { ...searchDraft, keyValue: searchDraft.keyValue.trim() }, 1);
+    void loadVouchers(listKind, { ...searchDraft, keyValue: searchDraft.keyValue.trim() }, 1);
   };
 
-  // Reset → back to the passed list
+  // Reset → back to the prepared list, no filter
   const handleReset = () => {
     setSearchDraft(EMPTY_SEARCH);
-    void loadVouchers('PASSED', EMPTY_SEARCH, 1);
+    void loadVouchers('PENDING', EMPTY_SEARCH, 1);
+  };
+
+  // Form "Search" button → toggles the list between passed and prepared vouchers
+  const handleToggleList = () => {
+    setSearchDraft(EMPTY_SEARCH);
+    void loadVouchers(listKind === 'PENDING' ? 'PASSED' : 'PENDING', EMPTY_SEARCH, 1);
   };
 
   const handlePageChange = (page: number) => {
@@ -358,10 +375,10 @@ export default function CashBankVoucherPass({ voucherType }: Props) {
     const prepDate = apiDateToISO(record.DocumentPreparationDate) || docDate;
 
     return {
-      RecordState: 2,
+      RecordState: 1,
       DocumentHeaderID: record.DocumentHeaderID,
       DocumentType: voucherType,
-      WorkflowDocumentID: workflow.passed,
+      WorkflowDocumentID: workflow.passing,
       BranchCompanyID: companyId,
       GroupCompanyID: companyGroupId,
       FinancialYearID: financialYearId,
@@ -424,7 +441,7 @@ export default function CashBankVoucherPass({ voucherType }: Props) {
     <>
       <Modal {...modalState} isOpen={modalState.isOpen} onClose={handleClose} />
 
-      {/* ── Opened voucher ───────────────────────────────────────── */}
+      {/* ── Pass form (shown only after double-clicking a voucher) ── */}
       {opened && record && (
         <PageCard title={`${title} Pass`} className="mb-4">
           <div
@@ -545,6 +562,17 @@ export default function CashBankVoucherPass({ voucherType }: Props) {
           </FormField>
 
           <div className="flex justify-end gap-2 mt-4">
+            {canSearch && (
+              <Button
+                variant="outline"
+                type="button"
+                onClick={handleToggleList}
+                disabled={listLoading}
+                title={listKind === 'PENDING' ? 'Show passed vouchers' : 'Show prepared vouchers'}
+              >
+                <Search size={13} /> Search
+              </Button>
+            )}
             {canClose && (
               <Button variant="secondary" type="button" onClick={handleCloseVoucher}>
                 <X size={13} /> Close
@@ -560,7 +588,7 @@ export default function CashBankVoucherPass({ voucherType }: Props) {
       )}
 
       {/* ── Search + list ────────────────────────────────────────── */}
-      <PageCard title={`${title} Pass`} showBackButton={!opened}>
+      <PageCard title={listKind === 'PENDING' ? 'Prepared Vouchers' : 'Passed Vouchers'} showBackButton={!opened}>
         <div className="flex flex-wrap items-end gap-3 mb-4">
           <FormField label="Search By" className="w-full sm:w-52">
             <select
@@ -604,8 +632,12 @@ export default function CashBankVoucherPass({ voucherType }: Props) {
           >
             {listKind === 'PASSED' ? 'Passed vouchers' : 'Waiting to be passed'}
           </span>
-          {listKind === 'PENDING' && (
-            <span className="text-xs text-slate-400">Click Reset to go back to passed vouchers</span>
+          {opened && (
+            <span className="text-xs text-slate-400">
+              {listKind === 'PENDING'
+                ? 'Use Search on the form above to see passed vouchers'
+                : 'Use Search on the form above to go back to prepared vouchers'}
+            </span>
           )}
         </div>
 
