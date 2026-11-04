@@ -19,6 +19,10 @@ import OpeningGLBalanceManager from './components/pages/account/opening-gl-balan
 import OpeningSLBalanceManager from './components/pages/account/opening-gl-balance/OpeningSLBalanceManager';
 import CashBankVoucherManager from './components/pages/account/voucher/CashBankVoucherManager';
 import CashBankVoucherPass from './components/pages/account/voucher/CashBankVoucherPass';
+import JournalVoucherManager from './components/pages/account/voucher/JournalVoucherManager';
+import JournalVoucherPass from './components/pages/account/voucher/JournalVoucherPass';
+import ContraVoucherManager from './components/pages/account/voucher/ContraVoucherManager';
+import ContraVoucherPass from './components/pages/account/voucher/ContraVoucherPass';
 
 const Login = lazy(() => import('@/components/pages/Login'));
 const Dashboard = lazy(() => import('@/components/pages/Dashboard'));
@@ -81,6 +85,10 @@ export default function App() {
             <Route path="bank_voucher/preparation" element={<CashBankVoucherManager key="BANK" voucherType="BANK" />} />
             <Route path="cash_voucher/passing" element={<CashBankVoucherPass key="CASH-PASS" voucherType="CASH" />} />
             <Route path="bank_voucher/passing" element={<CashBankVoucherPass key="BANK-PASS" voucherType="BANK" />} />
+            <Route path="journal_voucher/preparation" element={<JournalVoucherManager />} />
+            <Route path="journal_voucher/passing" element={<JournalVoucherPass />} />
+            <Route path="contra_voucher/preparation" element={<ContraVoucherManager />} />
+                        <Route path="contra_voucher/passing" element={<ContraVoucherPass />} />
           </Route> 
 
           {/* Catch-all */}

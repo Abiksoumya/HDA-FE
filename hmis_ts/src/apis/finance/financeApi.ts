@@ -260,3 +260,9 @@ export interface VoucherQueryParams {
 
 export const getVouchers = (params: VoucherQueryParams) =>
   axiosClient.get('/api/finance/vouchers', { params }).then((r) => r.data);
+
+export const createJournalVoucher = (data: unknown) =>
+  axiosClient.post('/api/finance/journal-voucher', data).then((r) => r.data);
+
+export const createContraVoucher = (data: unknown) =>
+  axiosClient.post('/api/finance/contra-voucher', data).then((r) => r.data);

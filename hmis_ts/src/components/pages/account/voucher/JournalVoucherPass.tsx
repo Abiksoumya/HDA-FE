@@ -1,0 +1,655 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Loader2, Search, RotateCcw, X, CheckCircle2, Lock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useAppSelector } from '@/hooks/redux';
+import { useToast } from '@/hooks/useToast';
+import { useModal } from '@/hooks/useModal';
+import { usePageButtons } from '@/hooks/usePageButtons';
+import { getCashBankLedgerAccountsForVoucher, createJournalVoucher, getVouchers } from '@/apis/finance/financeApi';
+import PageCard from '@/components/shared/PageCard';
+import FormField from '@/components/shared/FormField';
+import Modal from '@/components/panels/Modal';
+import { Button } from '@/components/ui/Button';
+import { cn } from '@/utils/cn';
+import { VOUCHER_WORKFLOW } from '@/utils/Voucherworkflow';
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+interface SubLedger { SubLedgerID: number; AccountCode: string; AccountDescription: string; }
+interface LedgerAccount { AccountID: number; Code: string; Description: string; GLSLFlag: string; SubLedger: SubLedger[]; }
+
+interface VoucherPosting {
+  LineNo: number;
+  GLAccountID: number;
+  SLAccountID: number | null;
+  CostCenterID: number | null;
+  LocationID: number | null;
+  Amount: number;
+  AmountSign: 'D' | 'C';
+  LineNarration: string | null;
+  CostCenter?: string;
+  Location?: string;
+}
+
+interface VoucherRecord {
+  DocumentHeaderID: number;
+  VoucherSeries: string;
+  VoucherNo: string;
+  DocumentTypeID: number;
+  DocumentDate: string;
+  DocumentPreparationDate?: string;
+  DocumentAmount: number;
+  Narration: string | null;
+  DocumentID?: number;     // workflow stage of this record (menu ID)
+  PrevVoucherID?: number;  // pass record → the prepared voucher it came from
+  NextVoucherID?: number;  // prepared record → the pass record created from it (0 = not passed yet)
+  Posting: VoucherPosting[];
+}
+
+// One line on the pass form — only the amount can change, the side (Dr/Cr) stays fixed
+interface PassLine {
+  posting: VoucherPosting;
+  ledgerLabel: string;
+  subLedgerLabel: string;
+  side: 'D' | 'C';
+  amount: string;
+}
+
+interface OpenedVoucher {
+  record: VoucherRecord;
+  passed: boolean; // opened from the passed list → read-only
+}
+
+type ListKind = 'PASSED' | 'PENDING';
+
+type VoucherSearchKey = 'DocumentHeaderID' | 'VoucherNo' | 'VoucherSeries' | 'DocumentDate' | 'EntryDate';
+
+const SEARCH_KEYS: { value: VoucherSearchKey; label: string; kind: 'text' | 'number' | 'date'; placeholder?: string }[] = [
+  { value: 'VoucherNo', label: 'Voucher No', kind: 'text', placeholder: 'e.g. 000007' },
+  { value: 'VoucherSeries', label: 'Voucher Series', kind: 'text', placeholder: 'e.g. JRN/20261101' },
+  { value: 'DocumentDate', label: 'Voucher Date', kind: 'date' },
+  { value: 'EntryDate', label: 'Entry Date', kind: 'date' },
+  { value: 'DocumentHeaderID', label: 'Document ID', kind: 'number', placeholder: 'e.g. 14' },
+];
+
+interface VoucherSearch { keyName: VoucherSearchKey | ''; keyValue: string; }
+const EMPTY_SEARCH: VoucherSearch = { keyName: '', keyValue: '' };
+
+const PAGE_SIZE = 10;
+// The list SP returns every workflow stage mixed together, so fetch a batch,
+// filter here, and page on the client. Switch to server paging once the SP filters by stage.
+const FETCH_SIZE = 500; // SP maximum
+
+const JOURNAL_DOC_TYPE_ID = 3; // doc_type_dDocTypId: Journal
+const WORKFLOW = VOUCHER_WORKFLOW.JOURNAL;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const fmt = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const num = (x: unknown) => Number(x ?? 0) || 0;
+const voucherNoOf = (v: VoucherRecord) => [v.VoucherSeries, v.VoucherNo].filter(Boolean).join('/');
+
+// "06/10/2026" or "2026-10-06T00:00:00" → "2026-10-06"
+function apiDateToISO(v?: string | null): string {
+  if (!v) return '';
+  const dmy = v.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+  return /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : '';
+}
+
+function formatDisplayDate(v?: string | null): string {
+  const iso = apiDateToISO(v);
+  if (!iso) return v ?? '';
+  const [y, m, d] = iso.split('-');
+  return `${d}-${m}-${y}`;
+}
+
+const toSpDate = (iso: string) => iso.replace(/-/g, '/'); // yyyy-mm-dd → yyyy/mm/dd
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  const e = err as { response?: { data?: { message?: string } }; message?: string };
+  return e?.response?.data?.message || e?.message || fallback;
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
+
+export default function JournalVoucherPass() {
+  const { toast } = useToast();
+  const { showModal, modalState, handleClose } = useModal();
+  const buttons = usePageButtons();
+  const canPass = buttons.includes('Approve') || buttons.includes('Submit');
+  const canClose = buttons.includes('Close');
+  const canSearch = buttons.includes('Search');
+
+  const user = useAppSelector((s) => s.auth.user);
+  const dept = (user as any)?.UserDepartment?.[0];
+  const companyId: number = dept?.CompanyID ?? 0;
+  const companyGroupId: number = dept?.CompanyGroupID ?? 0;
+  const financialYearId: number = dept?.FinancialYearID ?? 0;
+
+  const title = 'Journal Voucher';
+
+  // Masters
+  const [ledgers, setLedgers] = useState<LedgerAccount[]>([]);
+  const [mastersLoading, setMastersLoading] = useState(true);
+
+  // List
+  const [listKind, setListKind] = useState<ListKind>('PENDING');
+  const [searchDraft, setSearchDraft] = useState<VoucherSearch>(EMPTY_SEARCH);
+  const [appliedSearch, setAppliedSearch] = useState<VoucherSearch>(EMPTY_SEARCH);
+  const [filteredVouchers, setFilteredVouchers] = useState<VoucherRecord[]>([]);
+  const [listLoading, setListLoading] = useState(false);
+  const [pageNo, setPageNo] = useState(1);
+
+  // Opened voucher
+  const [opened, setOpened] = useState<OpenedVoucher | null>(null);
+  const [lines, setLines] = useState<PassLine[]>([]);
+  const [originalAmounts, setOriginalAmounts] = useState<string[]>([]);
+  const [passing, setPassing] = useState(false);
+
+  // ── Load ───────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!companyId) {
+      setMastersLoading(false);
+      return;
+    }
+    getCashBankLedgerAccountsForVoucher(companyId, companyGroupId, financialYearId)
+      .then((r) => setLedgers(r?.data?.Accounts ?? []))
+      .catch((err) => toast(getErrorMessage(err, 'Failed to load ledgers.'), 'error'))
+      .finally(() => setMastersLoading(false));
+
+    // Initial list: prepared journals waiting to be passed
+    void loadVouchers('PENDING', EMPTY_SEARCH, 1);
+  }, [companyId, companyGroupId, financialYearId]);
+
+  async function loadVouchers(kind: ListKind, search: VoucherSearch, page: number) {
+    setListLoading(true);
+    try {
+      const r = await getVouchers({
+        DocumentTypeID: JOURNAL_DOC_TYPE_ID,
+        BranchCompanyID: companyId,
+        GroupCompanyID: companyGroupId,
+        FinancialYearID: financialYearId,
+        WorkflowDocumentID: kind === 'PASSED' ? WORKFLOW.passing : WORKFLOW.preparation,
+        KeyName: search.keyName,
+        KeyValue: search.keyValue.trim(),
+        PageNo: 1,
+        PageSize: FETCH_SIZE,
+      });
+      const d = r?.data;
+      if (d?.IsSuccess === false) throw new Error(d?.ErrorDescription || 'Failed to load vouchers.');
+      const all: VoucherRecord[] = d?.Vouchers ?? [];
+      // Prepared = at preparation stage and not passed yet (NextVoucherID 0)
+      // Passed   = at passing stage and linked to a prepared voucher (PrevVoucherID > 0)
+      const rows = all.filter((v) =>
+        kind === 'PENDING'
+          ? num(v.DocumentID) === WORKFLOW.preparation && num(v.NextVoucherID) === 0
+          : num(v.DocumentID) === WORKFLOW.passing && num(v.PrevVoucherID) > 0,
+      );
+      setFilteredVouchers(rows);
+      setPageNo(Math.min(Math.max(page, 1), Math.max(1, Math.ceil(rows.length / PAGE_SIZE))));
+      setListKind(kind);
+      setAppliedSearch(search);
+    } catch (err) {
+      setFilteredVouchers([]);
+      setPageNo(1);
+      toast(getErrorMessage(err, 'Failed to load vouchers.'), 'error');
+    } finally {
+      setListLoading(false);
+    }
+  }
+
+  // ── Derived ────────────────────────────────────────────────────────────────
+  const paging = {
+    totalRecords: filteredVouchers.length,
+    pageCount: Math.ceil(filteredVouchers.length / PAGE_SIZE),
+  };
+  const vouchers = filteredVouchers.slice((pageNo - 1) * PAGE_SIZE, pageNo * PAGE_SIZE);
+  const selectedKey = SEARCH_KEYS.find((k) => k.value === searchDraft.keyName);
+
+  const totals = useMemo(() => {
+    let dr = 0;
+    let cr = 0;
+    for (const l of lines) {
+      const n = Number(l.amount);
+      if (!Number.isFinite(n)) continue;
+      if (l.side === 'D') dr += n;
+      else cr += n;
+    }
+    dr = round2(dr);
+    cr = round2(cr);
+    return { dr, cr, diff: round2(dr - cr) };
+  }, [lines]);
+  const balanced = totals.dr > 0 && totals.diff === 0;
+
+  const readOnly = !opened || opened.passed;
+  const isDirty = lines.some((l, i) => l.amount !== originalAmounts[i]);
+
+  // ── List actions ───────────────────────────────────────────────────────────
+  const confirmDiscard = async () => {
+    if (!isDirty) return true;
+    return showModal({
+      title: 'Discard Changes',
+      message: 'You have changed amounts on the open voucher. Discard them?',
+      variant: 'warning',
+      confirmText: 'Yes, Discard',
+      cancelText: 'Cancel',
+    });
+  };
+
+  // List search filters the list currently shown (prepared or passed). No field = all.
+  const handleSearch = () => {
+    if (searchDraft.keyName && !searchDraft.keyValue.trim()) {
+      toast(`Please enter the ${selectedKey?.label ?? 'search value'}.`, 'error');
+      return;
+    }
+    void loadVouchers(listKind, { ...searchDraft, keyValue: searchDraft.keyValue.trim() }, 1);
+  };
+
+  // Reset → back to the prepared list, no filter
+  const handleReset = () => {
+    setSearchDraft(EMPTY_SEARCH);
+    void loadVouchers('PENDING', EMPTY_SEARCH, 1);
+  };
+
+  // Form "Search" button → toggles the list between passed and prepared vouchers
+  const handleToggleList = () => {
+    setSearchDraft(EMPTY_SEARCH);
+    void loadVouchers(listKind === 'PENDING' ? 'PASSED' : 'PENDING', EMPTY_SEARCH, 1);
+  };
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > paging.pageCount) return;
+    setPageNo(page);
+  };
+
+  const closeVoucher = () => {
+    setOpened(null);
+    setLines([]);
+    setOriginalAmounts([]);
+  };
+
+  const handleCloseVoucher = async () => {
+    if (!(await confirmDiscard())) return;
+    closeVoucher();
+  };
+
+  const handleOpenVoucher = async (v: VoucherRecord) => {
+    if (opened?.record.DocumentHeaderID === v.DocumentHeaderID) return;
+    if (!(await confirmDiscard())) return;
+
+    const passLines: PassLine[] = [...(v.Posting ?? [])]
+      .sort((a, b) => a.LineNo - b.LineNo)
+      .map((p) => {
+        const gl = ledgers.find((l) => l.AccountID === p.GLAccountID);
+        const sl = gl?.SubLedger.find((s) => s.SubLedgerID === p.SLAccountID);
+        return {
+          posting: p,
+          ledgerLabel: gl ? `${gl.Code} — ${gl.Description}` : `GL #${p.GLAccountID}`,
+          subLedgerLabel: sl?.AccountDescription ?? (p.SLAccountID ? `SL #${p.SLAccountID}` : ''),
+          side: p.AmountSign,
+          amount: String(p.Amount),
+        };
+      });
+
+    setOpened({ record: v, passed: listKind === 'PASSED' });
+    setLines(passLines);
+    setOriginalAmounts(passLines.map((l) => l.amount));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // ── Pass ───────────────────────────────────────────────────────────────────
+  const handleAmountChange = (index: number, value: string) =>
+    setLines((prev) => prev.map((l, i) => (i === index ? { ...l, amount: value } : l)));
+
+  const validate = (): string | null => {
+    if (!opened || opened.passed) return 'Open a voucher waiting to be passed first.';
+    for (let i = 0; i < lines.length; i++) {
+      const n = Number(lines[i].amount);
+      if (!lines[i].amount || !Number.isFinite(n) || n <= 0) return `Line ${i + 1}: enter an amount greater than 0.`;
+    }
+    if (totals.diff !== 0) {
+      return `Dr and Cr totals must be equal. Dr ${fmt(totals.dr)}, Cr ${fmt(totals.cr)} — difference ${fmt(Math.abs(totals.diff))}.`;
+    }
+    return null;
+  };
+
+  const buildPayload = () => {
+    const { record } = opened!;
+    const docDate = apiDateToISO(record.DocumentDate);
+    const prepDate = apiDateToISO(record.DocumentPreparationDate) || docDate;
+
+    return {
+      RecordState: 1,
+      WorkflowDocumentID: WORKFLOW.passing,
+      DocumentHeaderID: record.DocumentHeaderID, // the prepared voucher being passed
+      DocumentType: 'JOURNAL',
+      BranchCompanyID: companyId,
+      GroupCompanyID: companyGroupId,
+      FinancialYearID: financialYearId,
+      DRCRFlag: 'D',
+      DocumentAmount: totals.dr, // = total Cr (balanced)
+      DocumentDate: toSpDate(docDate),
+      DocumentPreparationDate: toSpDate(prepDate),
+      Narration: record.Narration ?? '',
+      Posting: lines.map((l) => ({
+        LineNo: l.posting.LineNo,
+        GLAccountID: l.posting.GLAccountID,
+        SLAccountID: l.posting.SLAccountID || 0,
+        CostCenterID: l.posting.CostCenterID || 0,
+        LocationID: l.posting.LocationID || 0,
+        Amount: round2(Number(l.amount)),
+        AmountSign: l.side,
+        LineNarration: l.posting.LineNarration ?? '',
+      })),
+    };
+  };
+
+  const handlePass = async () => {
+    const err = validate();
+    if (err) {
+      toast(err, 'error');
+      return;
+    }
+    const voucherNo = voucherNoOf(opened!.record);
+    const ok = await showModal({
+      title: 'Pass Voucher',
+      message: `Pass journal ${voucherNo} for ₹${fmt(totals.dr)}?`,
+      variant: 'success',
+      confirmText: 'Yes, Pass',
+      cancelText: 'Cancel',
+    });
+    if (!ok) return;
+
+    setPassing(true);
+    try {
+      const res = await createJournalVoucher(buildPayload());
+      if (res?.success === false || res?.data?.IsSuccess === false) {
+        throw new Error(res?.data?.ErrorDescription || res?.message || 'Failed to pass voucher.');
+      }
+      toast(`Journal ${voucherNo} passed successfully!`, 'success');
+      closeVoucher();
+      void loadVouchers(listKind, appliedSearch, pageNo);
+    } catch (e) {
+      toast(getErrorMessage(e, 'Failed to pass voucher.'), 'error');
+    } finally {
+      setPassing(false);
+    }
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  const record = opened?.record;
+
+  return (
+    <>
+      <Modal {...modalState} isOpen={modalState.isOpen} onClose={handleClose} />
+
+      {/* ── Pass form (shown only after double-clicking a voucher) ── */}
+      {opened && record && (
+        <PageCard title={`${title} Pass`} className="mb-4">
+          <div
+            className={cn(
+              'rounded-lg border px-4 py-2.5 mb-4 flex items-center gap-2 text-sm',
+              opened.passed
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : 'border-amber-200 bg-amber-50 text-amber-800',
+            )}
+          >
+            {opened.passed ? <Lock size={14} /> : <CheckCircle2 size={14} />}
+            {opened.passed ? 'Passed voucher' : 'Passing voucher'}{' '}
+            <span className="font-semibold">{voucherNoOf(record)}</span>
+            {opened.passed ? ' — read-only.' : ' — only Dr / Cr amounts can be changed; totals must stay equal.'}
+          </div>
+
+          {/* Header (read-only) */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
+            <FormField label="Voucher No">
+              <input className="form-input readonly" readOnly value={voucherNoOf(record)} />
+            </FormField>
+            <FormField label="Date">
+              <input className="form-input readonly" readOnly value={formatDisplayDate(record.DocumentDate)} />
+            </FormField>
+            <FormField label="Voucher Amount" className="md:col-start-4 md:items-end">
+              <div className="h-8 flex items-center gap-2">
+                <span className="text-base font-semibold text-slate-800 tabular-nums">{fmt(totals.dr)}</span>
+                {balanced ? (
+                  <span className="badge badge-green text-[11px]">Balanced</span>
+                ) : (
+                  <span className="badge badge-red text-[11px]">Diff {fmt(Math.abs(totals.diff))}</span>
+                )}
+              </div>
+            </FormField>
+          </div>
+
+          {/* Lines */}
+          <div className="rounded-lg border border-slate-200 overflow-hidden mb-4">
+            <div className="overflow-x-auto">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th className="w-10">#</th>
+                    <th>Ledger</th>
+                    <th>Sub Ledger</th>
+                    <th>Cost Centre</th>
+                    <th className="text-right w-36">Dr.</th>
+                    <th className="text-right w-36">Cr.</th>
+                    <th>Remarks</th>
+                    <th>Location</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.map((l, idx) => {
+                    const changed = l.amount !== originalAmounts[idx];
+                    const amountCell = (side: 'D' | 'C') =>
+                      l.side !== side ? null : readOnly ? (
+                        <span className="tabular-nums">{fmt(Number(l.amount) || 0)}</span>
+                      ) : (
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          className={cn('form-input text-right h-7 w-28 ml-auto', changed && 'border-amber-400 bg-amber-50')}
+                          value={l.amount}
+                          onChange={(e) => handleAmountChange(idx, e.target.value)}
+                        />
+                      );
+                    return (
+                      <tr key={l.posting.LineNo}>
+                        <td className="text-slate-400">{idx + 1}</td>
+                        <td className="font-medium text-slate-800">{l.ledgerLabel}</td>
+                        <td>{l.subLedgerLabel || <span className="text-slate-300">—</span>}</td>
+                        <td>{l.posting.CostCenter || <span className="text-slate-300">—</span>}</td>
+                        <td className="text-right text-blue-700">{amountCell('D')}</td>
+                        <td className="text-right text-emerald-700">{amountCell('C')}</td>
+                        <td className="text-xs text-slate-500">{l.posting.LineNarration}</td>
+                        <td>{l.posting.Location || <span className="text-slate-300">—</span>}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-slate-50 border-t border-slate-200 font-semibold text-sm">
+                    <td colSpan={4} className="px-4 py-2 text-right text-slate-500">Total</td>
+                    <td className="px-4 py-2 text-right text-blue-700">{fmt(totals.dr)}</td>
+                    <td className="px-4 py-2 text-right text-emerald-700">{fmt(totals.cr)}</td>
+                    <td colSpan={2} className={cn('px-4 py-2 text-xs', balanced ? 'text-emerald-600' : 'text-red-500')}>
+                      {balanced ? 'Balanced ✓' : `Difference ${fmt(Math.abs(totals.diff))} — Dr and Cr must be equal`}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <FormField label="Narration">
+            <textarea rows={2} className="form-textarea bg-slate-50" readOnly value={record.Narration ?? ''} />
+          </FormField>
+
+          <div className="flex justify-end gap-2 mt-4">
+            {canSearch && (
+              <Button
+                variant="outline"
+                type="button"
+                onClick={handleToggleList}
+                disabled={listLoading}
+                title={listKind === 'PENDING' ? 'Show passed vouchers' : 'Show prepared vouchers'}
+              >
+                <Search size={13} /> Search
+              </Button>
+            )}
+            {canClose && (
+              <Button variant="secondary" type="button" onClick={handleCloseVoucher}>
+                <X size={13} /> Close
+              </Button>
+            )}
+            {canPass && !opened.passed && (
+              <Button variant="success" type="button" onClick={handlePass} disabled={passing || !balanced}>
+                <CheckCircle2 size={13} /> {passing ? 'Passing…' : 'Pass'}
+              </Button>
+            )}
+          </div>
+        </PageCard>
+      )}
+
+      {/* ── Search + list ────────────────────────────────────────── */}
+      <PageCard title={listKind === 'PENDING' ? 'Prepared Journals' : 'Passed Journals'} showBackButton={!opened}>
+        <div className="flex flex-wrap items-end gap-3 mb-4">
+          <FormField label="Search By" className="w-full sm:w-52">
+            <select
+              className="form-select"
+              value={searchDraft.keyName}
+              onChange={(e) => setSearchDraft({ keyName: e.target.value as VoucherSearchKey | '', keyValue: '' })}
+            >
+              <option value="">All Vouchers</option>
+              {SEARCH_KEYS.map((k) => (
+                <option key={k.value} value={k.value}>{k.label}</option>
+              ))}
+            </select>
+          </FormField>
+
+          <FormField label={selectedKey?.label ?? 'Value'} required={!!selectedKey} className="w-full sm:w-60">
+            <input
+              type={selectedKey?.kind === 'date' ? 'date' : selectedKey?.kind === 'number' ? 'number' : 'text'}
+              min={selectedKey?.kind === 'number' ? 1 : undefined}
+              className="form-input"
+              value={searchDraft.keyValue}
+              disabled={!selectedKey}
+              placeholder={selectedKey ? selectedKey.placeholder : 'Not needed for All Vouchers'}
+              onChange={(e) => setSearchDraft((f) => ({ ...f, keyValue: e.target.value }))}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            />
+          </FormField>
+
+          <div className="flex gap-2">
+            <Button type="button" onClick={handleSearch} disabled={listLoading}>
+              <Search size={13} /> Search
+            </Button>
+            <Button type="button" variant="outline" onClick={handleReset} disabled={listLoading}>
+              <RotateCcw size={13} /> Reset
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 mb-2">
+          <span className={cn('badge text-[11px]', listKind === 'PASSED' ? 'badge-green' : 'badge-amber')}>
+            {listKind === 'PASSED' ? 'Passed vouchers' : 'Waiting to be passed'}
+          </span>
+          {opened && (
+            <span className="text-xs text-slate-400">
+              {listKind === 'PENDING'
+                ? 'Use Search on the form above to see passed vouchers'
+                : 'Use Search on the form above to go back to prepared vouchers'}
+            </span>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-slate-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th className="w-10">#</th>
+                  <th>Voucher No</th>
+                  <th>Date</th>
+                  <th className="text-right">Amount</th>
+                  <th>Narration</th>
+                  <th className="text-center">Lines</th>
+                  <th className="text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {listLoading || mastersLoading ? (
+                  <tr>
+                    <td colSpan={7} className="py-10 text-center text-slate-400 text-sm">
+                      <Loader2 size={14} className="animate-spin inline mr-2" />
+                      Loading vouchers…
+                    </td>
+                  </tr>
+                ) : vouchers.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-10 text-center text-slate-400 text-sm">
+                      {listKind === 'PASSED' ? 'No passed journals yet' : 'No journals waiting to be passed'}
+                    </td>
+                  </tr>
+                ) : (
+                  vouchers.map((v, idx) => (
+                    <tr
+                      key={v.DocumentHeaderID}
+                      onDoubleClick={() => handleOpenVoucher(v)}
+                      className={cn(
+                        'cursor-pointer select-none hover:bg-blue-50',
+                        opened?.record.DocumentHeaderID === v.DocumentHeaderID && 'bg-amber-50',
+                      )}
+                      title="Double-click to open"
+                    >
+                      <td className="text-slate-400">{(pageNo - 1) * PAGE_SIZE + idx + 1}</td>
+                      <td className="font-medium text-slate-800">{voucherNoOf(v)}</td>
+                      <td>{formatDisplayDate(v.DocumentDate)}</td>
+                      <td className="text-right tabular-nums">{fmt(v.DocumentAmount)}</td>
+                      <td className="text-xs text-slate-500">{v.Narration}</td>
+                      <td className="text-center">{v.Posting?.length ?? 0}</td>
+                      <td className="text-center">
+                        {listKind === 'PASSED' ? (
+                          <span className="badge badge-green text-[11px]">Passed</span>
+                        ) : (
+                          <span className="badge badge-blue text-[11px]">Prepared</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mt-3 text-xs text-slate-500">
+          <span>
+            {paging.totalRecords} voucher{paging.totalRecords === 1 ? '' : 's'} found · double-click to open
+          </span>
+          {paging.pageCount > 1 && (
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pageNo <= 1 || listLoading}
+                onClick={() => handlePageChange(pageNo - 1)}
+              >
+                <ChevronLeft size={13} />
+              </Button>
+              <span>Page {pageNo} of {paging.pageCount}</span>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pageNo >= paging.pageCount || listLoading}
+                onClick={() => handlePageChange(pageNo + 1)}
+              >
+                <ChevronRight size={13} />
+              </Button>
+            </div>
+          )}
+        </div>
+      </PageCard>
+    </>
+  );
+}
